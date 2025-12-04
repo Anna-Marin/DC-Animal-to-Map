@@ -23,14 +23,6 @@ jobs:
     steps:
       - name: Check out code
         uses: actions/checkout@v4
-      
-      - name: Install docker-compose
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y docker-compose
-
-      - name: Create .env file
-        run: touch .env
 
       - name: Run Tests
         run: sh ./scripts/test.sh
