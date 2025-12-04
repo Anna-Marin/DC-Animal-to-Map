@@ -21,16 +21,21 @@ jobs:
   tests:
     runs-on: ubuntu-latest
     steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+      
       - name: Install docker-compose
         run: |
           sudo apt-get update
           sudo apt-get install -y docker-compose
-      - name: Copy .env.example to .env
-        run: cp ./env.example .env
-      - name: Check out code
-        uses: actions/checkout@v4
 
       - name: Run Tests
+        env:
+          DOMAIN: backend
+          SMTP_HOST: ""
+          TRAEFIK_PUBLIC_NETWORK_IS_EXTERNAL: false
+          TRAEFIK_PUBLIC_NETWORK: traefik-public
+          INSTALL_DEV: true
         run: sh ./scripts/test.sh
 
   deploy-staging:
