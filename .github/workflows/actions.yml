@@ -29,6 +29,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y docker-compose
 
+      - name: Create .env file
+        run: touch .env
+
       - name: Run Tests
         env:
           DOMAIN: backend
