@@ -31,6 +31,10 @@ jobs:
       - name: Create .env file
         run: |
           cp .env.example .env
+          # Override MongoDB URI with secret if available
+          if [ -n "${{ secrets.MONGO_DATABASE_URI }}" ]; then
+            sed -i 's|MONGO_DATABASE_URI=.*|MONGO_DATABASE_URI=${{ secrets.MONGO_DATABASE_URI }}|' .env
+          fi
 
       - name: Run Tests
         run: sh ./scripts/test.sh
