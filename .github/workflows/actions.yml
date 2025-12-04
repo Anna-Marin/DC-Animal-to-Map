@@ -26,7 +26,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y docker-compose
       - name: Copy .env.example to .env
-        run: cp .env.example .env
+        run: cp ./env.example .env
       - name: Check out code
         uses: actions/checkout@v4
 
