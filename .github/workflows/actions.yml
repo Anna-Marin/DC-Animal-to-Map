@@ -28,6 +28,10 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v4
 
+      - name: Create .env file
+        run: |
+          cp .env.example .env
+
       - name: Run Tests
         run: sh ./scripts/test.sh
 
