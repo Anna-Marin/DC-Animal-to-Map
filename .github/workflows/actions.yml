@@ -33,12 +33,6 @@ jobs:
         run: touch .env
 
       - name: Run Tests
-        env:
-          DOMAIN: backend
-          SMTP_HOST: ""
-          TRAEFIK_PUBLIC_NETWORK_IS_EXTERNAL: false
-          TRAEFIK_PUBLIC_NETWORK: traefik-public
-          INSTALL_DEV: true
         run: sh ./scripts/test.sh
 
   deploy-staging:
