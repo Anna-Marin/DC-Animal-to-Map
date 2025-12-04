@@ -17,16 +17,6 @@ TEST_DATABASE = "test"
 settings.MONGO_DATABASE = TEST_DATABASE
 
 
-@pytest.fixture(scope="session")
-def event_loop():
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-    yield loop
-    loop.close()
-
-
 @pytest_asyncio.fixture(scope="session")
 async def db() -> Generator:
     db = MongoDatabase()
@@ -46,6 +36,6 @@ def superuser_token_headers(client: TestClient) -> Dict[str, str]:
     return get_superuser_token_headers(client)
 
 
-@pytest_asyncio.fixture(scope="module")
+@pytest_asyncio.fixture(scope="session")
 async def normal_user_token_headers(client: TestClient, db: AgnosticDatabase) -> Dict[str, str]:
     return await authentication_token_from_email(client=client, email=settings.EMAIL_TEST_USER, db=db)
