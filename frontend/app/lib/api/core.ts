@@ -8,3 +8,8 @@ export const apiCore = {
     };
   },
 };
+
+// Debug: mostra la URL de l'API al browser console
+if (typeof window !== 'undefined') {
+  console.log('API URL:', process.env.NEXT_PUBLIC_API_URL);
+}
