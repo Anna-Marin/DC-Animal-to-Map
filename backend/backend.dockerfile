@@ -12,6 +12,10 @@ RUN hatch env prune && hatch env create production && pip install --upgrade setu
 # WORKDIR /app/
 # /end Project-specific dependencies
 
+# Limit Gunicorn workers and disable reload to save RAM
+ENV WEB_CONCURRENCY=1
+ENV WITH_RELOAD=false
+
 # For development, Jupyter remote kernel
 # Using inside the container:
 # jupyter lab --ip=0.0.0.0 --allow-root --NotebookApp.custom_display_url=http://127.0.0.1:8888
