@@ -159,6 +159,8 @@ services:
       - ./frontend/.env.local
     build:
       context: ./frontend
+      args:
+        - NEXT_PUBLIC_API_URL=http://localhost:80/api/v1
     deploy:
       labels:
         - traefik.enable=true
@@ -166,10 +168,10 @@ services:
         - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-http.rule=PathPrefix(`/`)
         - traefik.http.services.${STACK_NAME?Variable not set}-frontend.loadbalancer.server.port=80
 
-  mongodb:
-    image: mongo
-    ports:
-      - 27017:27017
+  #mongodb:
+  #  image: mongo
+  #  ports:
+  #    - 27017:27017
 
 volumes:
   app-db-data:
