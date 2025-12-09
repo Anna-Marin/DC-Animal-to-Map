@@ -14,6 +14,8 @@ const navigation = [
   { name: "About", to: "/about" },
   { name: "Authentication", to: "/authentication" },
   { name: "Blog", to: "/blog" },
+  { name: "Image to Animal", to: "/image-to-animal" },
+
 ];
 
 const renderIcon = (open: boolean) => {

@@ -98,6 +98,15 @@ function LoginMessage(oauth: boolean) {
           We&apos;ll check if you have an account, and create one if you
           don&apos;t.
         </p>
+        <p className="mt-2 text-sm text-gray-600">
+          Or{" "}
+          <Link
+            href="/register"
+            className="font-medium text-rose-600 hover:text-rose-500"
+          >
+            register with a password
+          </Link>
+        </p>
       </div>
     );
 }

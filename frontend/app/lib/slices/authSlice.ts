@@ -100,28 +100,28 @@ const handleGenericLogin =
     payload: any,
     getProfile: boolean = true,
   ) =>
-  async (
-    dispatch: ThunkDispatch<any, void, Action>,
-    getState: () => RootState,
-  ) => {
-    try {
-      await dispatch(loginAttempt(payload));
-      const token = getState().tokens.access_token;
-      if (getProfile) {
-        await dispatch(getUserProfile(token));
+    async (
+      dispatch: ThunkDispatch<any, void, Action>,
+      getState: () => RootState,
+    ) => {
+      try {
+        await dispatch(loginAttempt(payload));
+        const token = getState().tokens.access_token;
+        if (getProfile) {
+          await dispatch(getUserProfile(token));
+        }
+      } catch (error) {
+        dispatch(
+          addNotice({
+            title: "Login error",
+            content:
+              "Please check your details or internet connection and try again.",
+            icon: "error",
+          }),
+        );
+        dispatch(logout());
       }
-    } catch (error) {
-      dispatch(
-        addNotice({
-          title: "Login error",
-          content:
-            "Please check your details or internet connection and try again.",
-          icon: "error",
-        }),
-      );
-      dispatch(logout());
-    }
-  };
+    };
 
 const isMagicAuthFirstPhase = (providedPassword?: string) =>
   providedPassword === undefined;
@@ -138,6 +138,24 @@ export const magicLogin = (payload: { token: string }) =>
 
 export const totpLogin = (payload: { claim: string }) =>
   handleGenericLogin(validateTOTPClaim, payload.claim);
+
+export const register = (payload: IUserOpenProfileCreate) => async (dispatch: any) => {
+  try {
+    await apiAuth.createProfile(payload);
+    dispatch(
+      login({ username: payload.email, password: payload.password }),
+    );
+  } catch (error) {
+    dispatch(
+      addNotice({
+        title: "Registration error",
+        content:
+          "Please check your details, or internet connection, and try again.",
+        icon: "error",
+      }),
+    );
+  }
+};
 
 export const logout = () => (dispatch: Dispatch) => {
   dispatch(deleteAuth());
@@ -193,99 +211,99 @@ export const createUserProfile =
 
 export const updateUserProfile =
   (payload: IUserProfileUpdate) =>
-  async (dispatch: Dispatch, getState: () => RootState) => {
-    const currentState = getState();
-    if (loggedIn(currentState) && currentState.tokens.access_token) {
-      try {
-        const res = await apiAuth.updateProfile(
-          currentState.tokens.access_token,
-          payload,
-        );
-        if (res.id) {
-          dispatch(setUserProfile(res));
+    async (dispatch: Dispatch, getState: () => RootState) => {
+      const currentState = getState();
+      if (loggedIn(currentState) && currentState.tokens.access_token) {
+        try {
+          const res = await apiAuth.updateProfile(
+            currentState.tokens.access_token,
+            payload,
+          );
+          if (res.id) {
+            dispatch(setUserProfile(res));
+            dispatch(
+              addNotice({
+                title: "Profile update",
+                content: "Your settings have been updated.",
+              }),
+            );
+          } else throw "Error";
+        } catch (error) {
           dispatch(
             addNotice({
-              title: "Profile update",
-              content: "Your settings have been updated.",
+              title: "Profile update error",
+              content:
+                "Please check your submission, or internet connection, and try again.",
+              icon: "error",
             }),
           );
-        } else throw "Error";
-      } catch (error) {
-        dispatch(
-          addNotice({
-            title: "Profile update error",
-            content:
-              "Please check your submission, or internet connection, and try again.",
-            icon: "error",
-          }),
-        );
+        }
       }
-    }
-  };
+    };
 
 export const enableTOTPAuthentication =
   (payload: IEnableTOTP) =>
-  async (dispatch: Dispatch, getState: () => RootState) => {
-    const currentState = getState();
-    if (loggedIn(currentState) && currentState.tokens.access_token) {
-      try {
-        const res = await apiAuth.enableTOTPAuthentication(
-          currentState.tokens.access_token,
-          payload,
-        );
-        if (res.msg) {
-          dispatch(setTOTPAuthentication(true));
+    async (dispatch: Dispatch, getState: () => RootState) => {
+      const currentState = getState();
+      if (loggedIn(currentState) && currentState.tokens.access_token) {
+        try {
+          const res = await apiAuth.enableTOTPAuthentication(
+            currentState.tokens.access_token,
+            payload,
+          );
+          if (res.msg) {
+            dispatch(setTOTPAuthentication(true));
+            dispatch(
+              addNotice({
+                title: "Two-factor authentication",
+                content: res.msg,
+              }),
+            );
+          } else throw "Error";
+        } catch (error) {
           dispatch(
             addNotice({
-              title: "Two-factor authentication",
-              content: res.msg,
+              title: "Error enabling two-factor authentication",
+              content:
+                "Please check your submission, or internet connection, and try again.",
+              icon: "error",
             }),
           );
-        } else throw "Error";
-      } catch (error) {
-        dispatch(
-          addNotice({
-            title: "Error enabling two-factor authentication",
-            content:
-              "Please check your submission, or internet connection, and try again.",
-            icon: "error",
-          }),
-        );
+        }
       }
-    }
-  };
+    };
 
 export const disableTOTPAuthentication =
   (payload: IUserProfileUpdate) =>
-  async (dispatch: Dispatch, getState: () => RootState) => {
-    const currentState = getState();
-    if (loggedIn(currentState) && currentState.tokens.access_token) {
-      try {
-        const res = await apiAuth.disableTOTPAuthentication(
-          currentState.tokens.access_token,
-          payload,
-        );
-        if (res.msg) {
-          dispatch(setTOTPAuthentication(false));
+    async (dispatch: Dispatch, getState: () => RootState) => {
+      const currentState = getState();
+      if (loggedIn(currentState) && currentState.tokens.access_token) {
+        try {
+          const res = await apiAuth.disableTOTPAuthentication(
+            currentState.tokens.access_token,
+            payload,
+          );
+          if (res.msg) {
+            dispatch(setTOTPAuthentication(false));
+            dispatch(
+              addNotice({
+                title: "Two-factor authentication",
+                content: res.msg,
+              }),
+            );
+          } else throw "Error";
+        } catch (error) {
           dispatch(
             addNotice({
-              title: "Two-factor authentication",
-              content: res.msg,
+              title: "Error disabling two-factor authentication",
+              content:
+                "Please check your submission, or internet connection, and try again.",
+              icon: "error",
             }),
           );
-        } else throw "Error";
-      } catch (error) {
-        dispatch(
-          addNotice({
-            title: "Error disabling two-factor authentication",
-            content:
-              "Please check your submission, or internet connection, and try again.",
-            icon: "error",
-          }),
-        );
+        }
       }
-    }
-  };
+    };
 
 export const sendEmailValidation =
   () => async (dispatch: Dispatch, getState: () => RootState) => {
@@ -320,37 +338,37 @@ export const sendEmailValidation =
 
 export const validateEmail =
   (validationToken: string) =>
-  async (dispatch: Dispatch, getState: () => RootState) => {
-    const currentState = getState();
-    if (
-      currentState.tokens.access_token &&
-      !currentState.auth.email_validated
-    ) {
-      try {
-        const res = await apiAuth.validateEmail(
-          currentState.tokens.access_token,
-          validationToken,
-        );
-        if (res.msg) {
-          dispatch(setEmailValidation(true));
+    async (dispatch: Dispatch, getState: () => RootState) => {
+      const currentState = getState();
+      if (
+        currentState.tokens.access_token &&
+        !currentState.auth.email_validated
+      ) {
+        try {
+          const res = await apiAuth.validateEmail(
+            currentState.tokens.access_token,
+            validationToken,
+          );
+          if (res.msg) {
+            dispatch(setEmailValidation(true));
+            dispatch(
+              addNotice({
+                title: "Success",
+                content: res.msg,
+              }),
+            );
+          } else throw "Error";
+        } catch (error) {
           dispatch(
             addNotice({
-              title: "Success",
-              content: res.msg,
+              title: "Validation error",
+              content: "Invalid token. Check your email and resend validation.",
+              icon: "error",
             }),
           );
-        } else throw "Error";
-      } catch (error) {
-        dispatch(
-          addNotice({
-            title: "Validation error",
-            content: "Invalid token. Check your email and resend validation.",
-            icon: "error",
-          }),
-        );
+        }
       }
-    }
-  };
+    };
 
 export const recoverPassword =
   (email: string) => async (dispatch: Dispatch, getState: () => RootState) => {
@@ -386,41 +404,41 @@ export const recoverPassword =
 
 export const resetPassword =
   (password: string, token: string) =>
-  async (dispatch: Dispatch, getState: () => RootState) => {
-    const currentState = getState();
-    if (!loggedIn(currentState)) {
-      try {
-        const claim: string = currentState.tokens.access_token;
-        // Check the two magic tokens meet basic criteria
-        const localClaim = tokenParser(claim);
-        const magicClaim = tokenParser(token);
-        if (
-          localClaim.hasOwnProperty("fingerprint") &&
-          magicClaim.hasOwnProperty("fingerprint") &&
-          localClaim["fingerprint"] === magicClaim["fingerprint"]
-        ) {
-          const res = await apiAuth.resetPassword(password, claim, token);
-          if (res.msg) {
-            dispatch(
-              addNotice({
-                title: "Success",
-                content: res.msg,
-              }),
-            );
-          } else throw "Error";
+    async (dispatch: Dispatch, getState: () => RootState) => {
+      const currentState = getState();
+      if (!loggedIn(currentState)) {
+        try {
+          const claim: string = currentState.tokens.access_token;
+          // Check the two magic tokens meet basic criteria
+          const localClaim = tokenParser(claim);
+          const magicClaim = tokenParser(token);
+          if (
+            localClaim.hasOwnProperty("fingerprint") &&
+            magicClaim.hasOwnProperty("fingerprint") &&
+            localClaim["fingerprint"] === magicClaim["fingerprint"]
+          ) {
+            const res = await apiAuth.resetPassword(password, claim, token);
+            if (res.msg) {
+              dispatch(
+                addNotice({
+                  title: "Success",
+                  content: res.msg,
+                }),
+              );
+            } else throw "Error";
+          }
+        } catch (error) {
+          dispatch(
+            addNotice({
+              title: "Login error",
+              content:
+                "Ensure you're using the same browser and that the token hasn't expired.",
+              icon: "error",
+            }),
+          );
+          dispatch(deleteTokens());
         }
-      } catch (error) {
-        dispatch(
-          addNotice({
-            title: "Login error",
-            content:
-              "Ensure you're using the same browser and that the token hasn't expired.",
-            icon: "error",
-          }),
-        );
-        dispatch(deleteTokens());
       }
-    }
-  };
+    };
 
 export default authSlice.reducer;

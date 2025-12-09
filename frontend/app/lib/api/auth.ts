@@ -116,7 +116,14 @@ export const apiAuth = {
   async createProfile(data: IUserOpenProfileCreate): Promise<IUserProfile> {
     const res = await fetch(`${apiCore.url}/users/`, {
       method: "POST",
-      body: JSON.stringify(data),
+      body: JSON.stringify({
+        email: data.email,
+        password: data.password,
+        full_name: data.fullName,
+      }),
+      headers: {
+        "Content-Type": "application/json",
+      },
     });
     return (await jsonify(res)) as IUserProfile;
   },
