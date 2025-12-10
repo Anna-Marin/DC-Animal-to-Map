@@ -48,6 +48,16 @@ class Settings(BaseSettings):
     MONGO_DATABASE: str
     MONGO_DATABASE_URI: str
 
+    # External APIs
+    WILDLIFE_API_KEY: str | None = None
+    WILDLIFE_API_URL: str = "https://www.animaldetect.com/api"
+    
+    NINJAS_API_KEY: str | None = None
+    NINJAS_API_URL: str = "https://api.api-ninjas.com/v1/animals"
+    
+    GOOGLE_MAPS_API_KEY: str | None = None
+    GOOGLE_MAPS_API_URL: str = "https://maps.googleapis.com/maps/api"
+
     SMTP_TLS: bool = True
     SMTP_PORT: int = 587
     SMTP_HOST: str | None = None
