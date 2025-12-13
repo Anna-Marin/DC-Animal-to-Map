@@ -1,4 +1,5 @@
 import secrets
+import os
 from typing import Any, Dict, List, Union, Annotated
 
 from pydantic import AnyHttpUrl, EmailStr, HttpUrl, field_validator, BeforeValidator
@@ -49,14 +50,17 @@ class Settings(BaseSettings):
     MONGO_DATABASE_URI: str
 
     # External APIs
-    WILDLIFE_API_KEY: str | None = None
+    WILDLIFE_API_KEY: str | None = os.getenv("WILDLIFE_API_KEY")
     WILDLIFE_API_URL: str = "https://www.animaldetect.com/api"
     
-    NINJAS_API_KEY: str | None = None
+    NINJAS_API_KEY: str | None = os.getenv("NINJAS_API_KEY")
     NINJAS_API_URL: str = "https://api.api-ninjas.com/v1/animals"
     
-    GOOGLE_MAPS_API_KEY: str | None = None
-    GOOGLE_MAPS_API_URL: str = "https://maps.googleapis.com/maps/api"
+    OPEN_STREET_MAPS_API_KEY: str | None = os.getenv("OPEN_STREET_MAPS_API_KEY")
+    OPEN_STREET_MAPS_API_URL: str = "https://nominatim.openstreetmap.org"
+
+    EBIRD_API_KEY: str | None = os.getenv("EBIRD_API_KEY")
+    EBIRD_API_URL: str = "https://api.ebird.org/v2/data/obs/"
 
     SMTP_TLS: bool = True
     SMTP_PORT: int = 587

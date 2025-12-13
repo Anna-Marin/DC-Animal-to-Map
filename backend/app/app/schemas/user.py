@@ -11,10 +11,11 @@ class UserLogin(BaseModel):
 # Shared properties
 class UserBase(BaseModel):
     email: EmailStr | None = None
-    email_validated: bool | None = False
     is_active: bool | None = True
     is_superuser: bool | None = False
     full_name: str = ""
+    latitude: float | None = None
+    longitude: float | None = None
 
 
 # Properties to receive via API on creation
@@ -37,7 +38,6 @@ class UserInDBBase(UserBase):
 # Additional properties to return via API
 class User(UserInDBBase):
     hashed_password: bool = Field(default=False, alias="password")
-    totp_secret: bool = Field(default=False, alias="totp")
     model_config = ConfigDict(populate_by_name=True)
 
     @field_validator("hashed_password", mode="before")
@@ -46,15 +46,7 @@ class User(UserInDBBase):
             return True
         return False
 
-    @field_validator("totp_secret", mode="before")
-    def evaluate_totp_secret(cls, totp_secret):
-        if totp_secret:
-            return True
-        return False
-
 
 # Additional properties stored in DB
 class UserInDB(UserInDBBase):
-    hashed_password: SecretStr | None = None
-    totp_secret: SecretStr | None = None
-    totp_counter: int | None = None
+    hashed_password: SecretStr

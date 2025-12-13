@@ -6,45 +6,35 @@ import {
   createSlice,
 } from "@reduxjs/toolkit";
 import {
-  IEnableTOTP,
   IUserOpenProfileCreate,
   IUserProfile,
   IUserProfileUpdate,
-  IWebToken,
 } from "../interfaces";
 import { RootState } from "../store";
-import { tokenIsTOTP, tokenParser } from "../utilities";
 import { addNotice, deleteNotices } from "./toastsSlice";
 import { apiAuth } from "../api";
 import {
-  setMagicToken,
   deleteTokens,
   getTokens,
-  validateMagicTokens,
-  validateTOTPClaim,
 } from "./tokensSlice";
 import { PURGE } from "redux-persist";
 
 interface AuthState {
   id: string;
   email: string;
-  email_validated: boolean;
   is_active: boolean;
   is_superuser: boolean;
   fullName: string;
   password: boolean;
-  totp: boolean;
 }
 
 const initialState: AuthState = {
   id: "",
   email: "",
-  email_validated: false,
   is_active: false,
   is_superuser: false,
   fullName: "",
   password: false,
-  totp: false,
 };
 
 export const authSlice = createSlice({
@@ -54,21 +44,10 @@ export const authSlice = createSlice({
     setUserProfile: (state: AuthState, action: PayloadAction<IUserProfile>) => {
       state.id = action.payload.id;
       state.email = action.payload.email;
-      state.email_validated = action.payload.email_validated;
       state.is_active = action.payload.is_active;
       state.is_superuser = action.payload.is_superuser;
       state.fullName = action.payload.fullName;
       state.password = action.payload.password;
-      state.totp = action.payload.totp;
-    },
-    setTOTPAuthentication: (
-      state: AuthState,
-      action: PayloadAction<boolean>,
-    ) => {
-      state.totp = action.payload;
-    },
-    setEmailValidation: (state: AuthState, action: PayloadAction<boolean>) => {
-      state.email_validated = action.payload;
     },
     deleteAuth: () => {
       return initialState;
@@ -78,8 +57,6 @@ export const authSlice = createSlice({
 
 export const {
   setUserProfile,
-  setTOTPAuthentication,
-  setEmailValidation,
   deleteAuth,
 } = authSlice.actions;
 
@@ -123,21 +100,8 @@ const handleGenericLogin =
       }
     };
 
-const isMagicAuthFirstPhase = (providedPassword?: string) =>
-  providedPassword === undefined;
-
-export const login = (payload: { username: string; password?: string }) =>
-  handleGenericLogin(
-    getTokens,
-    payload,
-    !isMagicAuthFirstPhase(payload.password),
-  );
-
-export const magicLogin = (payload: { token: string }) =>
-  handleGenericLogin(validateMagicTokens, payload.token);
-
-export const totpLogin = (payload: { claim: string }) =>
-  handleGenericLogin(validateTOTPClaim, payload.claim);
+export const login = (payload: { username: string; password: string }) =>
+  handleGenericLogin(getTokens, payload, true);
 
 export const register = (payload: IUserOpenProfileCreate) => async (dispatch: any) => {
   try {
@@ -170,7 +134,7 @@ export const logout = () => (dispatch: Dispatch) => {
 
 export const getUserProfile =
   (token: string) => async (dispatch: ThunkDispatch<any, void, Action>) => {
-    if (token && !tokenIsTOTP(token)) {
+    if (token) {
       try {
         const res = await apiAuth.getProfile(token);
         if (res.id) {

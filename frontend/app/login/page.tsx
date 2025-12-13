@@ -37,7 +37,11 @@ const renderError = (type: LiteralUnion<keyof RegisterOptions, string>) => {
       return <></>;
   }
 };
-const redirectAfterLogin = "/";
+function getNextParam(searchParams: URLSearchParams) {
+  const next = searchParams.get("next");
+  if (next && next.startsWith("/")) return next;
+  return "/";
+}
 const redirectAfterMagic = "/magic";
 const redirectTOTP = "/totp";
 
@@ -118,6 +122,7 @@ function UnsuspendedPage() {
   const isLoggedIn = useAppSelector((state) => loggedIn(state))
   const searchParams = useSearchParams();
   const router = useRouter();
+  const nextRoute = getNextParam(searchParams);
 
   const redirectTo = (route: string) => {
     router.push(route);
@@ -147,20 +152,24 @@ function UnsuspendedPage() {
   }, [searchParams]);
 
   useEffect(() => {
-    if (isLoggedIn) return redirectTo(redirectAfterLogin);
+    if (isLoggedIn && accessToken) {
+      return redirectTo(nextRoute);
+    }
     if (
       accessToken &&
       tokenIsTOTP(accessToken) &&
       (!oauth || isSubmitSuccessful)
-    )
+    ) {
       return redirectTo(redirectTOTP);
+    }
     if (
       accessToken &&
       tokenParser(accessToken).hasOwnProperty("fingerprint") &&
       !oauth
-    )
+    ) {
       return redirectTo(redirectAfterMagic);
-  }, [isLoggedIn, accessToken, isSubmitSuccessful]); // eslint-disable-line react-hooks/exhaustive-deps
+    }
+  }, [isLoggedIn, accessToken, isSubmitSuccessful, nextRoute]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <main className="flex min-h-full">

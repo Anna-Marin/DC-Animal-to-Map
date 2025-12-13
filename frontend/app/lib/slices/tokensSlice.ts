@@ -41,6 +41,20 @@ export const getTokens = (payload: { username: string; password?: string }) => {
   return async (dispatch: Dispatch) => {
     try {
       if (payload.password !== undefined) {
+        // Validation: ensure username and password are non-empty
+        if (!payload.username || !payload.password) {
+          dispatch(
+            addNotice({
+              title: "Login error",
+              content: "Username and password must not be empty.",
+              icon: "error",
+            })
+          );
+          dispatch(deleteTokens());
+          return;
+        }
+        // Debug log
+        console.log("loginWithOauth payload:", payload);
         const response = await apiAuth.loginWithOauth(
           payload.username,
           payload.password,
@@ -51,6 +65,19 @@ export const getTokens = (payload: { username: string; password?: string }) => {
           throw "error";
         }
       } else {
+        if (!payload.username) {
+          dispatch(
+            addNotice({
+              title: "Login error",
+              content: "Email must not be empty.",
+              icon: "error",
+            })
+          );
+          dispatch(deleteTokens());
+          return;
+        }
+        // Debug log
+        console.log("loginWithMagicLink payload:", payload);
         const response = await apiAuth.loginWithMagicLink(payload.username);
         if (response.claim) {
           dispatch(setMagicToken(response));

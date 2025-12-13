@@ -7,6 +7,7 @@ class DataSource(str, Enum):
     WILDLIFE = "wildlife"
     NINJAS = "ninjas"
     MAPS = "maps"
+    EBIRD = "ebird"
 
 class ETLStatus(str, Enum):
     SUCCESS = "success"

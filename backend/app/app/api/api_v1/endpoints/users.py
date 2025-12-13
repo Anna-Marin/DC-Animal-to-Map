@@ -23,6 +23,8 @@ async def create_user_profile(
     password: str = Body(...),
     email: EmailStr = Body(...),
     full_name: str = Body(""),
+    latitude: float | None = Body(None),
+    longitude: float | None = Body(None),
 ) -> Any:
     """
     Create new user without the need to be logged in.
@@ -34,7 +36,7 @@ async def create_user_profile(
             detail="This username is not available.",
         )
     # Create user auth
-    user_in = schemas.UserCreate(password=password, email=email, full_name=full_name)
+    user_in = schemas.UserCreate(password=password, email=email, full_name=full_name, latitude=latitude, longitude=longitude)
     user = await crud.user.create(db, obj_in=user_in)
     return user
 
@@ -95,20 +97,6 @@ async def read_all_users(
     return await crud.user.get_multi(db=db, page=page)
 
 
-@router.post("/new-totp", response_model=schemas.NewTOTP)
-async def request_new_totp(
-    *,
-    current_user: models.User = Depends(deps.get_current_active_user),
-) -> Any:
-    """
-    Request new keys to enable TOTP on the user account.
-    """
-    obj_in = security.create_new_totp(label=current_user.email)
-    # Remove the secret ...
-    obj_in.secret = None
-    return obj_in
-
-
 @router.post("/toggle-state", response_model=schemas.Msg)
 async def toggle_state(
     *,
@@ -147,6 +135,52 @@ async def create_user(
     user = await crud.user.create(db, obj_in=user_in)
     if settings.EMAILS_ENABLED and user_in.email:
         send_new_account_email(email_to=user_in.email, username=user_in.email, password=user_in.password)
+    return user
+
+
+@router.delete("/{user_id}", response_model=schemas.Msg)
+async def delete_user(
+    user_id: str,
+    db: AgnosticDatabase = Depends(deps.get_db),
+    current_user: models.User = Depends(deps.get_current_active_user),
+) -> Any:
+    """
+    Users can delete their own account, admins can delete any account.
+    """
+    from bson import ObjectId
+    # Check if user is deleting their own account or is admin
+    if str(current_user.id) != user_id and not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+    
+    user = await crud.user.get(db, id=ObjectId(user_id))
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Soft delete: set is_active to False
+    user.is_active = False
+    await crud.user.update(db, db_obj=user, obj_in={"is_active": False})
+    return {"msg": f"User {user_id} deleted successfully"}
+
+
+@router.put("/{user_id}/role", response_model=schemas.User)
+async def update_user_role(
+    user_id: str,
+    role: str,
+    db: AgnosticDatabase = Depends(deps.get_db),
+    current_user: models.User = Depends(deps.get_current_active_superuser),
+) -> Any:
+    """
+    Update user role (admin only).
+    """
+    from bson import ObjectId
+    user = await crud.user.get(db, id=ObjectId(user_id))
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Update role (is_superuser field)
+    is_superuser = role.lower() == "admin"
+    await crud.user.update(db, db_obj=user, obj_in={"is_superuser": is_superuser})
+    user.is_superuser = is_superuser
     return user
 
 

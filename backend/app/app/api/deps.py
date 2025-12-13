@@ -90,17 +90,13 @@ async def get_refresh_user(
         raise HTTPException(status_code=404, detail="User not found")
     if not crud.user.is_active(user):
         raise HTTPException(status_code=400, detail="Inactive user")
-    # Check and revoke this refresh token
     token_obj = await crud.token.get(token=token, user=user)
     if not token_obj:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Could not validate credentials",
         )
-    await crud.token.remove(db, db_obj=token_obj)
-
-    # Make sure to revoke all other refresh tokens
-    return await crud.user.get(id=token_data.sub)
+    return user
 
 
 async def get_current_active_user(

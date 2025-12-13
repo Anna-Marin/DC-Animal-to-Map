@@ -2,8 +2,9 @@
 
 import { useAppDispatch, useAppSelector } from "../lib/hooks"
 import { register, loggedIn } from "../lib/slices/authSlice"
+import { addNotice } from "../lib/slices/toastsSlice"
 import { useRouter } from "next/navigation"
-import { Suspense, useEffect } from "react"
+import { Suspense, useEffect, useState } from "react"
 import {
     FieldValues,
     useForm,
@@ -15,6 +16,7 @@ const schema = {
     fullName: { required: false },
     password: { required: true, minLength: 8, maxLength: 64 },
     confirmPassword: { required: true, minLength: 8, maxLength: 64 },
+    shareLocation: { required: false },
 };
 
 const renderError = (type: string) => {
@@ -44,6 +46,55 @@ function UnsuspendedPage() {
     const isLoggedIn = useAppSelector((state) => loggedIn(state))
     const router = useRouter();
 
+    const [location, setLocation] = useState<string>("");
+    const [latitude, setLatitude] = useState<number | null>(null);
+    const [longitude, setLongitude] = useState<number | null>(null);
+
+    const geocodeLocation = async (address: string) => {
+        if (!address.trim()) {
+            setLatitude(null);
+            setLongitude(null);
+            return;
+        }
+        try {
+            const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`);
+            const data = await response.json();
+            if (data && data.length > 0) {
+                setLatitude(parseFloat(data[0].lat));
+                setLongitude(parseFloat(data[0].lon));
+            } else {
+                dispatch(
+                    addNotice({
+                        title: "Location Not Found",
+                        content: "Could not find coordinates for the entered location.",
+                        icon: "error",
+                    }),
+                );
+                setLatitude(null);
+                setLongitude(null);
+            }
+        } catch (error) {
+            console.error("Geocoding error:", error);
+            dispatch(
+                addNotice({
+                    title: "Geocoding Error",
+                    content: "Error fetching location coordinates.",
+                    icon: "error",
+                }),
+            );
+            setLatitude(null);
+            setLongitude(null);
+        }
+    };
+
+    const handleLocationChange = (value: string) => {
+        setLocation(value);
+    };
+
+    const handleLocationBlur = () => {
+        geocodeLocation(location);
+    };
+
     const redirectTo = (route: string) => {
         router.push(route);
     };
@@ -62,7 +113,9 @@ function UnsuspendedPage() {
             register({
                 email: data["email"],
                 password: data["password"],
-                fullName: data["fullName"]
+                fullName: data["fullName"],
+                latitude: latitude,
+                longitude: longitude,
             }),
         );
     }
@@ -180,6 +233,27 @@ function UnsuspendedPage() {
                                         className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-rose-600 focus:outline-none focus:ring-rose-600 sm:text-sm"
                                     />
                                     {errors.confirmPassword && renderError(errors.confirmPassword.type as string)}
+                                </div>
+                            </div>
+
+                            <div>
+                                <label
+                                    htmlFor="location"
+                                    className="block text-sm font-medium text-gray-700"
+                                >
+                                    Location (optional)
+                                </label>
+                                <div className="mt-1 group relative inline-block w-full">
+                                    <input
+                                        value={location}
+                                        onChange={(e) => handleLocationChange(e.target.value)}
+                                        onBlur={handleLocationBlur}
+                                        id="location"
+                                        name="location"
+                                        type="text"
+                                        placeholder="Enter city or address"
+                                        className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-rose-600 focus:outline-none focus:ring-rose-600 sm:text-sm"
+                                    />
                                 </div>
                             </div>
 

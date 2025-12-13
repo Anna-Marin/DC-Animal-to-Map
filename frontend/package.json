@@ -21,6 +21,7 @@
     "@tailwindcss/postcss": "^4.0.9",
     "@tailwindcss/typography": "^0.5.10",
     "gray-matter": "^4.0.3",
+    "leaflet": "^1.9.4",
     "next": "^14.0.4",
     "prettier": "^3.1.1",
     "qrcode.react": "^3.1.0",
@@ -37,6 +38,7 @@
     "webpack": "latest"
   },
   "devDependencies": {
+    "@types/leaflet": "^1.9.8",
     "@types/mdx": "^2.0.8",
     "@types/node": "latest",
     "@types/react": "latest",

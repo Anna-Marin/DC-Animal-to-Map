@@ -54,8 +54,7 @@ export const apiAuth = {
     const res = await fetch(`${apiCore.url}/login/oauth`, {
       method: "POST",
       body: params,
-      // @ts-ignore
-      headers: { "Content-Disposition": params },
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
     });
     return (await jsonify(res)) as ITokenResponse;
   },
@@ -120,6 +119,8 @@ export const apiAuth = {
         email: data.email,
         password: data.password,
         full_name: data.fullName,
+        latitude: data.latitude,
+        longitude: data.longitude,
       }),
       headers: {
         "Content-Type": "application/json",

@@ -1,4 +1,5 @@
 import "./assets/css/main.css";
+import "leaflet/dist/leaflet.css";
 import type { Metadata } from "next";
 import Navigation from "./components/Navigation";
 import Notification from "./components/Notification";

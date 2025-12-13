@@ -19,10 +19,9 @@ class User(Base):
     modified: datetime = Field(default_factory=datetime_now_sec)
     full_name: str = Field(default="")
     email: EmailStr
-    hashed_password: Any = Field(default=None)
-    totp_secret: Any = Field(default=None)
-    totp_counter: Optional[int] = Field(default=None)
-    email_validated: bool = Field(default=False)
-    is_active: bool = Field(default=False)
+    hashed_password: str
+    is_active: bool = Field(default=True)
     is_superuser: bool = Field(default=False)
     refresh_tokens: list[ObjectId] = Field(default_factory=list)
+    latitude: Optional[float] = Field(default=None)
+    longitude: Optional[float] = Field(default=None)

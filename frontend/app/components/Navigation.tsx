@@ -5,6 +5,10 @@ import { Bars3Icon, XMarkIcon } from "@heroicons/react/24/outline";
 import Link from "next/link";
 import AlertsButton from "./alerts/AlertsButton";
 import dynamic from "next/dynamic";
+import { useState, useEffect } from "react";
+import { useAppSelector } from "../lib/hooks";
+import { isAdmin } from "../lib/slices/authSlice";
+
 const AuthenticationNavigation = dynamic(
   () => import("./authentication/AuthenticationNavigation"),
   { ssr: false },
@@ -15,7 +19,12 @@ const navigation = [
   { name: "Authentication", to: "/authentication" },
   { name: "Blog", to: "/blog" },
   { name: "Image to Animal", to: "/image-to-animal" },
+  { name: "Locate to Map", to: "/locate-to-map" },
+  { name: "Bird Observations", to: "/bird-observations" },
+];
 
+const adminNavigation = [
+  { name: "Admin", to: "/admin" },
 ];
 
 const renderIcon = (open: boolean) => {
@@ -26,14 +35,23 @@ const renderIcon = (open: boolean) => {
   }
 };
 
-const renderNavLinks = (style: string) => {
-  return navigation.map((nav) => (
+const renderNavLinks = (style: string, includeAdmin: boolean) => {
+  const links = includeAdmin ? [...navigation, ...adminNavigation] : navigation;
+  return links.map((nav) => (
     <Link href={nav.to} key={nav.name} className={style}>
       {nav.name}
     </Link>
   ));
 };
+
 export default function Navigation() {
+  const [mounted, setMounted] = useState(false);
+  const isUserAdmin = useAppSelector((state) => isAdmin(state));
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   return (
     <header>
       <Disclosure as="nav">
@@ -64,8 +82,9 @@ export default function Navigation() {
                     </Link>
                   </div>
                   <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
-                    {renderNavLinks(
+                    {mounted && renderNavLinks(
                       "inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-900 hover:text-rose-500",
+                      isUserAdmin
                     )}
                   </div>
                 </div>
@@ -77,8 +96,9 @@ export default function Navigation() {
             </div>
             <Disclosure.Panel className="sm:hidden">
               <div className="space-y-1 pt-2 pb-4">
-                {renderNavLinks(
+                {mounted && renderNavLinks(
                   "block hover:border-l-4 hover:border-rose-500 hover:bg-rose-50 py-2 pl-3 pr-4 text-base font-medium text-rose-700",
+                  isUserAdmin
                 )}
               </div>
             </Disclosure.Panel>

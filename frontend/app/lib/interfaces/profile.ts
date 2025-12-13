@@ -2,12 +2,10 @@
 export interface IUserProfile {
   id: string;
   email: string;
-  email_validated: boolean;
   is_active: boolean;
   is_superuser: boolean;
   fullName: string;
   password: boolean;
-  totp: boolean;
 }
 
 export interface IUserProfileUpdate {
@@ -31,4 +29,6 @@ export interface IUserOpenProfileCreate {
   email: string;
   fullName?: string;
   password: string;
+  latitude?: number;
+  longitude?: number;
 }

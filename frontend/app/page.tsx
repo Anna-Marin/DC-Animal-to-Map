@@ -5,8 +5,7 @@ import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Suspense, useEffect } from "react"
 import { useAppDispatch, useAppSelector } from "./lib/hooks"
-import { loggedIn, magicLogin } from "./lib/slices/authSlice"
-import { tokenIsTOTP } from "./lib/utilities"
+import { loggedIn } from "./lib/slices/authSlice"
 import { token } from "./lib/slices/tokensSlice"
 const github = {
   name: "GitHub",
@@ -24,7 +23,6 @@ const github = {
   },
 };
 
-const redirectTOTP = "/totp";
 const redirectAfterLogin = "/";
 
 function UnsuspendedPage() {
@@ -35,24 +33,6 @@ function UnsuspendedPage() {
 
   const accessToken = useAppSelector((state) => token(state));
   const isLoggedIn = useAppSelector((state) => loggedIn(state));
-
-  useEffect(() => {
-    async function load() {
-      // Check if email is being validated
-      if (query && query.get("magic")) {
-        await new Promise((resolve) => {
-          setTimeout(() => {
-            resolve(true);
-          }, 100);
-        });
-        if (!isLoggedIn)
-          await dispatch(magicLogin({ token: query.get("magic") as string }));
-        if (tokenIsTOTP(accessToken)) router.push(redirectTOTP);
-        else router.push(redirectAfterLogin);
-      }
-    }
-    load();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <main>

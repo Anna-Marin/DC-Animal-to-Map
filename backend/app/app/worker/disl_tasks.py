@@ -1,6 +1,13 @@
 import asyncio
 from app.core.celery_app import celery_app
-from app.services.disl import WildlifeProvider, NinjasProvider, GoogleMapsProvider
+from app.services.disl import WildlifeProvider, NinjasProvider, OpenStreetMapsProvider
+from app.services.disl.ebird import EBirdProvider
+@celery_app.task
+def run_ebird_etl(region_code, species, max_results):
+    logger.info(f"Starting eBird ETL task for region: {region_code}, species: {species}")
+    loop = asyncio.get_event_loop()
+    provider = EBirdProvider()
+    return loop.run_until_complete(provider.run_etl(region_code, species, max_results))
 from celery.utils.log import get_task_logger
 
 logger = get_task_logger(__name__)
@@ -25,4 +32,4 @@ def run_ninjas_etl():
 def run_maps_etl():
     logger.info("Starting Maps ETL task")
     loop = asyncio.get_event_loop()
-    return loop.run_until_complete(_run_etl(GoogleMapsProvider))
+    return loop.run_until_complete(_run_etl(OpenStreetMapsProvider))
