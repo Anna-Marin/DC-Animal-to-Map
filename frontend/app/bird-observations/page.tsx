@@ -70,6 +70,9 @@ export default function BirdObservations() {
                     mapRef.current.remove();
                 }
 
+                // Null check for TypeScript
+                if (!mapContainerRef.current) return;
+
                 // Calculate center
                 const avgLat = observations.reduce((sum, o) => sum + (o.lat || 0), 0) / observations.length;
                 const avgLon = observations.reduce((sum, o) => sum + (o.lon || 0), 0) / observations.length;
