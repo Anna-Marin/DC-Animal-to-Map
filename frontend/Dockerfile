@@ -33,6 +33,32 @@ ENV NEXT_TELEMETRY_DISABLED 1
 # If using npm comment out above and use below instead
 RUN npm run build
 
+
+# Development image for hot-reload
+FROM base AS dev
+WORKDIR /frontend
+
+ENV NODE_ENV development
+EXPOSE 3000
+ENV PORT 3000
+ENV HOSTNAME "0.0.0.0"
+
+# Copy package files first
+COPY package.json yarn.lock* package-lock.json* pnpm-lock.yaml* ./
+
+# Install dependencies in the dev stage
+RUN \
+  if [ -f yarn.lock ]; then yarn --frozen-lockfile; \
+  elif [ -f package-lock.json ]; then npm ci; \
+  elif [ -f pnpm-lock.yaml ]; then yarn global add pnpm && pnpm i --frozen-lockfile; \
+  else npm install; \
+  fi
+
+# Copy the rest of the application
+COPY . .
+
+CMD [ "npm", "run", "dev" ]
+
 # Production image, copy all the files and run next
 FROM base AS runner
 WORKDIR /frontend
