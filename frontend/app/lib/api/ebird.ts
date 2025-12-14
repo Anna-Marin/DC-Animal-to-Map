@@ -1,5 +1,3 @@
-import { token } from "../lib/slices/tokensSlice";
-
 export async function fetchEBirdObservations(species: string, accessToken: string) {
   // First, trigger the eBird ETL run for the species
   const runRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/etl/ebird/run`, {
