@@ -57,16 +57,19 @@ function UnsuspendedPage() {
             return;
         }
         try {
-            const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`);
+            const response = await fetch(
+                `${process.env.NEXT_PUBLIC_API_URL}/maps/geocode?address=${encodeURIComponent(address)}`
+            );
             const data = await response.json();
-            if (data && data.length > 0) {
-                setLatitude(parseFloat(data[0].lat));
-                setLongitude(parseFloat(data[0].lon));
+
+            if (data.latitude && data.longitude) {
+                setLatitude(data.latitude);
+                setLongitude(data.longitude);
             } else {
                 dispatch(
                     addNotice({
                         title: "Location Not Found",
-                        content: "Could not find coordinates for the entered location.",
+                        content: data.error || "Could not find coordinates for the entered location.",
                         icon: "error",
                     }),
                 );
@@ -109,15 +112,23 @@ function UnsuspendedPage() {
     const password = watch("password");
 
     async function submit(data: FieldValues) {
-        await dispatch(
-            register({
-                email: data["email"],
-                password: data["password"],
-                fullName: data["fullName"],
-                latitude: latitude,
-                longitude: longitude,
-            }),
-        );
+        console.log("[REGISTER PAGE] Form submitted with data:", data);
+        console.log("[REGISTER PAGE] Coordinates:", { latitude, longitude });
+
+        try {
+            await dispatch(
+                register({
+                    email: data["email"],
+                    password: data["password"],
+                    fullName: data["fullName"],
+                    latitude: latitude,
+                    longitude: longitude,
+                }),
+            );
+            console.log("[REGISTER PAGE] Register action dispatched");
+        } catch (error) {
+            console.error("[REGISTER PAGE] Submit error:", error);
+        }
     }
 
     useEffect(() => {

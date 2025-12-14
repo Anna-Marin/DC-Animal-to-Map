@@ -14,16 +14,20 @@ export default function ImageToAnimal() {
     const user = useAppSelector(profile);
     const isLoggedIn = useAppSelector(loggedIn);
     const router = useRouter();
-
-
     const [mounted, setMounted] = useState(false);
+    const [animalInfo, setAnimalInfo] = useState<any>(null);
+    const [error, setError] = useState<string | null>(null);
+    const [isIdentifying, setIsIdentifying] = useState(false);
 
     useEffect(() => {
         setMounted(true);
-        if (!isLoggedIn) {
+    }, []);
+
+    useEffect(() => {
+        if (mounted && !isLoggedIn) {
             router.push("/login?next=" + encodeURIComponent("/image-to-animal"));
         }
-    }, [isLoggedIn, router]);
+    }, [mounted, isLoggedIn, router]);
 
     function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
         if (e.target.files && e.target.files[0]) {
@@ -33,16 +37,9 @@ export default function ImageToAnimal() {
         }
     }
 
-
-    // State for animal info and errors
-    const [animalInfo, setAnimalInfo] = useState<any>(null);
-    const [error, setError] = useState<string | null>(null);
-    const [isIdentifying, setIsIdentifying] = useState(false);
-
     async function identifyAnimal() {
-        // Prevent multiple simultaneous requests
         if (isIdentifying) return;
-        
+
         setIsIdentifying(true);
         setAnimalInfo(null);
         setError(null);
@@ -65,36 +62,30 @@ export default function ImageToAnimal() {
 
         try {
             const response = await makeRequest(accessToken);
-            
+
             if (response.status === 401 || response.status === 403) {
-                // Token expired - refresh and retry once
                 await dispatch(require("../lib/slices/tokensSlice").refreshTokens());
-                
-                // Wait a bit for Redux state to update
+
                 await new Promise(resolve => setTimeout(resolve, 100));
-                
-                // Get the fresh token from the store
                 const state = require("../lib/store").store.getState();
                 const newToken = state.tokens.access_token;
-                
-                // If no valid token after refresh, redirect to login
+
                 if (!newToken) {
                     dispatch(logout());
                     router.push("/login");
                     setIsIdentifying(false);
                     return;
                 }
-                
-                // Retry with new token
+
                 const retryResponse = await makeRequest(newToken);
-                
+
                 if (!retryResponse.ok) {
                     dispatch(logout());
                     router.push("/login");
                     setIsIdentifying(false);
                     return;
                 }
-                
+
                 const retryData = await retryResponse.json();
                 if (retryData.error) {
                     setError(retryData.error);
@@ -104,7 +95,7 @@ export default function ImageToAnimal() {
                 setIsIdentifying(false);
                 return;
             }
-            
+
             const data = await response.json();
             if (data.error) {
                 setError(data.error);
@@ -159,10 +150,11 @@ export default function ImageToAnimal() {
                                     </button>
                                     <button
                                         onClick={() => {
-                                            if (animalInfo && animalInfo.wildlife && animalInfo.wildlife.name) {
-                                                router.push(`/image-to-animal/map?name=${encodeURIComponent(animalInfo.wildlife.name)}`);
+                                            const searchName = animalInfo?.ninjas?.name || animalInfo?.wildlife?.name;
+                                            if (searchName) {
+                                                router.push(`/locate-to-map?name=${encodeURIComponent(searchName)}`);
                                             } else {
-                                                router.push('/image-to-animal/map');
+                                                router.push('/locate-to-map');
                                             }
                                         }}
                                         className="mt-2 ml-2 inline-flex items-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"

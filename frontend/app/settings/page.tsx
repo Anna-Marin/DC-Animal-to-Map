@@ -5,7 +5,6 @@ import {
   UserCircleIcon,
   UsersIcon,
 } from "@heroicons/react/24/outline";
-import ValidateEmailButton from "../components/settings/ValidateEmailButton";
 import Profile from "../components/settings/Profile";
 import Security from "../components/settings/Security";
 import { useState, useEffect } from "react";
@@ -79,7 +78,6 @@ export default function Settings() {
                   <span className="truncate">Moderation</span>
                 </button>
               )}
-              {!currentProfile.email_validated && <ValidateEmailButton />}
             </nav>
           </aside>
           <div className="space-y-6 ml-3 sm:px-6 lg:col-span-9 min-w-full lg:px-0">

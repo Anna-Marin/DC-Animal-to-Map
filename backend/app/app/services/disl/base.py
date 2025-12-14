@@ -40,16 +40,30 @@ class ETLProvider(ABC):
 
     async def run(self):
         """Run the full ETL process."""
-        logger.info(f"Starting ETL for {self.source}")
+        self.log_info(f"Starting ETL for {self.source}")
         try:
             raw_data = await self.fetch()
             normalized_data = self.normalize(raw_data)
             await self.store(normalized_data, ETLStatus.SUCCESS)
+            self.log_info(f"ETL completed successfully with {len(normalized_data) if isinstance(normalized_data, list) else 1} items")
             return {"status": "success", "data_count": len(normalized_data) if isinstance(normalized_data, list) else 1}
         except Exception as e:
-            logger.error(f"ETL failed for {self.source}: {str(e)}")
+            self.log_error(f"ETL failed: {str(e)}")
             await self.store(None, ETLStatus.FAILED, error=str(e))
             return {"status": "failed", "error": str(e)}
+
+
+    def get_logger(self):
+        return logging.getLogger(f"app.services.disl.{self.source.value}")
+    
+    def log_info(self, message: str):
+        self.get_logger().info(f"[{self.source.value}] {message}")
+    
+    def log_warning(self, message: str):
+        self.get_logger().warning(f"[{self.source.value}] {message}")
+    
+    def log_error(self, message: str):
+        self.get_logger().error(f"[{self.source.value}] {message}")
 
     @staticmethod
     def get_client() -> httpx.AsyncClient:

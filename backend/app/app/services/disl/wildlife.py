@@ -15,6 +15,17 @@ class WildlifeProvider(ETLProvider):
         if not self.api_key:
             raise ValueError("WILDLIFE_API_KEY is not set")
 
+        # Preprocessing: Resize/compress if image is larger than 5MB
+        if len(image_bytes) > 5 * 1024 * 1024:
+            try:
+                from .image_utils import resize_and_compress_image
+                self.log_info(f"Image size {len(image_bytes)} bytes, resizing...")
+                image_bytes, _ = resize_and_compress_image(image_bytes)
+                self.log_info(f"Image resized to {len(image_bytes)} bytes")
+            except Exception as e:
+                self.log_error(f"Image resize/compression failed: {str(e)}")
+                raise ValueError(f"Image preprocessing failed: {str(e)}")
+        
         files = {"image": (filename, image_bytes, content_type)}
         data = {}
         if country:
@@ -27,17 +38,15 @@ class WildlifeProvider(ETLProvider):
                 f"{self.base_url}/v1/detect",
                 headers={"Authorization": f"Bearer {self.api_key}"},
                 files=files,
-                data=data
+                data=data,
+                timeout=30.0
             )
             response.raise_for_status()
             logger.info(f"Wildlife API response: {response.text}")
             return response.json()
 
     def normalize(self, raw_data: Any) -> Any:
-        """
-        Normalize Wildlife API data.
-        Extracts 'annotations' from the API response.
-        """
+
         if isinstance(raw_data, dict):
             annotations = raw_data.get("annotations", [])
         else:

@@ -6,6 +6,8 @@ export interface IUserProfile {
   is_superuser: boolean;
   fullName: string;
   password: boolean;
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface IUserProfileUpdate {
@@ -15,6 +17,9 @@ export interface IUserProfileUpdate {
   password?: string;
   is_active?: boolean;
   is_superuser?: boolean;
+  latitude?: number;
+  longitude?: number;
+  location?: string;
 }
 
 export interface IUserProfileCreate {

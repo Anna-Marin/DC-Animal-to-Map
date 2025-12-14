@@ -4,24 +4,23 @@ import React, { useEffect, useState, useRef } from "react";
 import { fetchEBirdObservations } from "../lib/api/ebird";
 import "leaflet/dist/leaflet.css";
 import { markerIcon2x, markerIcon, markerShadow } from "./leaflet-icons";
-import { useAppSelector, useAppDispatch } from "../lib/hooks";
-import { token } from "../lib/slices/tokensSlice";
-import { logout, loggedIn } from "../lib/slices/authSlice";
 import { useSearchParams, useRouter } from "next/navigation";
+import { useAuthFetch } from "../lib/hooks/useAuthFetch";
+import { useProtectedRoute } from "../lib/hooks/useProtectedRoute";
 
 export default function LocateToMap() {
-        const [locationResults, setLocationResults] = useState<any>(null);
-    const accessToken = useAppSelector(token);
-    const isLoggedIn = useAppSelector(loggedIn);
-    const dispatch = useAppDispatch();
+    const isLoggedIn = useProtectedRoute("/locate-to-map");
+    const authFetch = useAuthFetch();
     const searchParams = useSearchParams();
     const router = useRouter();
+
+    const [locationResults, setLocationResults] = useState<any>(null);
     const [search, setSearch] = useState("");
     const [mapData, setMapData] = useState<any>(null);
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
-    const [mounted, setMounted] = useState(false);
     const [autoSearched, setAutoSearched] = useState(false);
+    const shouldAutoSearch = useRef(false);
     const mapRef = useRef<any>(null);
     const mapContainerRef = useRef<HTMLDivElement>(null);
     // eBird state
@@ -29,23 +28,16 @@ export default function LocateToMap() {
     const [showEBird, setShowEBird] = useState(false);
     const [ebirdLoading, setEBirdLoading] = useState(false);
 
-    // Mount and check authentication
-    useEffect(() => {
-        setMounted(true);
-        if (!isLoggedIn) {
-            router.push("/login?next=" + encodeURIComponent("/locate-to-map"));
-        }
-    }, [isLoggedIn, router]);
-
     // Pre-fill and auto-search if coming from button
     useEffect(() => {
+        if (!isLoggedIn) return;
         const animalName = searchParams.get("name") || "";
         if (animalName && !autoSearched) {
             setSearch(animalName);
-            handleSearch(animalName);
+            shouldAutoSearch.current = true;
             setAutoSearched(true);
         }
-    }, [searchParams]);
+    }, [isLoggedIn, searchParams, autoSearched]);
 
     // Initialize map when mapData changes
     useEffect(() => {
@@ -88,73 +80,56 @@ export default function LocateToMap() {
         };
     }, [mapData]);
 
-    const handleSearch = (query?: string) => {
-        const animal = query !== undefined ? query : search;
-        if (!animal) return;
+    const handleSearch = async (animal?: string) => {
+        const searchTerm = animal || search;
+        if (!searchTerm) return;
         setLoading(true);
         setError(null);
         setMapData(null);
         setEBirdData(null);
         setShowEBird(false);
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/maps/animal-to-map?name=${encodeURIComponent(animal)}`, {
-            method: "GET",
-            headers: {
-                Authorization: `Bearer ${accessToken}`,
-            },
-        })
-            .then(async res => {
-                if (res.status === 401 || res.status === 403) {
-                    setLoading(false);
-                    // Clear all tokens and auth state
-                    dispatch(logout());
-                    router.push("/login");
-                    return null;
-                }
-                const data = await res.json();
-                if (!data) return; // Early exit if redirected
-                console.log("[LocateToMap] API response:", data);
-                if (data.error) {
-                    setError(data.error);
-                } else if (data.map_data) {
-                    setMapData(data.map_data);
-                    if (data.map_data.location_results) {
-                        setLocationResults(data.map_data.location_results);
-                    } else {
-                        setLocationResults(null);
-                    }
-                    // Prefetch eBird - check for any animal
-                    console.log("[DEBUG] Checking eBird observations for:", animal);
-                    setEBirdLoading(true);
-                    fetch(`${process.env.NEXT_PUBLIC_API_URL}/maps/ebird-observations-map?species=${encodeURIComponent(animal)}`, {
-                        headers: {
-                            Authorization: `Bearer ${accessToken}`,
-                        },
-                    })
-                    .then(res => res.json())
-                    .then(data => {
-                        console.log("[DEBUG] eBird API response:", data);
-                        if (data && data.observations && data.observations.length > 0) {
-                            setEBirdData(data);
-                            console.log("[DEBUG] Set eBird data with", data.observations.length, "observations");
-                        } else {
-                            console.log("[DEBUG] No eBird observations found");
-                        }
-                    })
-                    .catch(err => {
-                        console.error("[DEBUG] Error fetching eBird:", err);
-                    })
-                    .finally(() => setEBirdLoading(false));
-                } else {
-                    setError("No map found for this animal.");
-                }
-            })
-            .catch(err => setError(err.message || "Unknown error"))
-            .finally(() => setLoading(false));
-    };
 
-    // Don't render if not mounted or not logged in
-    if (!mounted || !isLoggedIn) {
+        try {
+            const data = await authFetch(
+                `${process.env.NEXT_PUBLIC_API_URL}/maps/animal-to-map?name=${encodeURIComponent(searchTerm)}`
+            );
+
+            if (data.error) {
+                setError(data.error);
+            } else if (data.map_data) {
+                setMapData(data.map_data);
+                setLocationResults(data.map_data.location_results || null);
+
+                // Prefetch eBird
+                setEBirdLoading(true);
+                try {
+                    const ebirdData = await authFetch(
+                        `${process.env.NEXT_PUBLIC_API_URL}/maps/ebird-observations-map?species=${encodeURIComponent(searchTerm)}`
+                    );
+                    if (ebirdData?.observations?.length > 0) {
+                        setEBirdData(ebirdData);
+                    }
+                } catch (err) {
+                    console.error("Error fetching eBird:", err);
+                } finally {
+                    setEBirdLoading(false);
+                }
+            }
+        } catch (err: any) {
+            setError(err.message || "An error occurred");
+        } finally {
+            setLoading(false);
+        }
+    };
+    // Don't render if not logged in (protected route handles redirect)
+    if (!isLoggedIn) {
         return null;
+    }
+
+    // Auto-search after render if needed
+    if (shouldAutoSearch.current && search && !loading) {
+        shouldAutoSearch.current = false;
+        setTimeout(() => handleSearch(search), 0);
     }
 
     return (
@@ -188,8 +163,8 @@ export default function LocateToMap() {
                 {error && <div className="text-red-600 font-semibold">{error}</div>}
                 {mapData && (
                     <div className="mt-8">
-                        <div 
-                            ref={mapContainerRef} 
+                        <div
+                            ref={mapContainerRef}
                             className="w-full h-[600px] rounded-lg shadow-md border border-gray-300"
                             style={{ minHeight: 500, height: "60vh", zIndex: 0 }}
                         />

@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 
 from app.api.api_v1.api import api_router
 from app.core.config import settings
+from app.core.scheduler import setup_scheduler
 
 # Global logging setup
 logging.basicConfig(
@@ -13,11 +14,24 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 
+logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def app_init(app: FastAPI):
+    # Initialize API router
     app.include_router(api_router, prefix=settings.API_V1_STR)
+    
+    # Initialize and start APScheduler for background tasks
+    logger.info("Starting APScheduler for background ETL tasks")
+    scheduler = setup_scheduler()
+    scheduler.start()
+    logger.info("APScheduler started successfully")
+    
     yield
+    
+    # Shutdown scheduler on app exit
+    logger.info("Shutting down APScheduler")
+    scheduler.shutdown()
 
 
 app = FastAPI(

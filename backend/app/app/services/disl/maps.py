@@ -3,6 +3,7 @@ from typing import Any
 from app.core.config import settings
 from app.models.raw_data import DataSource
 from .base import ETLProvider
+import logging
 
 
 class OpenStreetMapsProvider(ETLProvider):
@@ -12,7 +13,6 @@ class OpenStreetMapsProvider(ETLProvider):
         self.base_url = settings.OPEN_STREET_MAPS_API_URL
 
     async def get_map_for_locations(self, locations):
-        import logging
         logger = logging.getLogger("app.services.disl.maps")
         logger.info(f"[ETL-MAP] Starting get_map_for_locations for: {locations}")
         if not locations:
@@ -23,24 +23,26 @@ class OpenStreetMapsProvider(ETLProvider):
         location_results = {}
         for loc in locations:
             try:
-                logger.info(f"[ETL-MAP] Querying Nominatim for: {loc}")
-                nominatim_results = await self.fetch(loc)
+                logger.info(f"[ETL-MAP] Querying Photon for: {loc}")
+                photon_results = await self.fetch(loc)
                 coords = []
-                for item in nominatim_results:
-                    # Only accept type country or continent
-                    if (
-                        item.get("lat") and item.get("lon") and
-                        (item.get("type") == "country" or item.get("type") == "continent")
-                    ):
-                        coords.append({"lat": float(item["lat"]), "lon": float(item["lon"])} )
+                features = photon_results.get("features", [])
+                for item in features:
+                    geom = item.get("geometry", {})
+                    props = item.get("properties", {})
+                    
+                    if geom.get("type") == "Point" and geom.get("coordinates"):
+                        lon, lat = geom["coordinates"]
+                        coords.append({"lat": float(lat), "lon": float(lon)})
+                        
                 if coords:
-                    logger.info(f"[ETL-MAP] Found {len(coords)} coordinates for {loc} (Nominatim, filtered)")
+                    logger.info(f"[ETL-MAP] Found {len(coords)} coordinates for {loc} (Photon)")
                     location_results[loc] = coords
                 else:
                     logger.warning(f"[ETL-MAP] No coordinates found for location: {loc}")
                     location_results[loc] = []
             except Exception as e:
-                logger.error(f"[ETL-MAP] Error fetching coordinates from Nominatim for {loc}: {e}")
+                logger.error(f"[ETL-MAP] Error fetching coordinates from Photon for {loc}: {e}")
                 location_results[loc] = []
         all_coords = [c for coords in location_results.values() for c in coords]
         center = all_coords[0] if all_coords else {"lat": 0, "lon": 0}
@@ -52,41 +54,72 @@ class OpenStreetMapsProvider(ETLProvider):
         }
 
     async def fetch(self, query: str = "NONE") -> Any:
-        """
-        Fetch location data from OpenStreetMaps (Nominatim).
-        """
         params = {
             "q": query,
-            "format": "json",
             "limit": 10
         }
-        # Some Nominatim instances require a User-Agent
-        headers = {"User-Agent": "AnimalToMap/1.0"}
         
         async with self.get_client() as client:
             response = await client.get(
-                f"{self.base_url}/search",
-                params=params,
-                headers=headers
+                "https://photon.komoot.io/api/",
+                params=params
             )
             response.raise_for_status()
             return response.json()
 
     def normalize(self, raw_data: Any) -> Any:
-        """
-        Normalize OSM data to a simplified list of locations.
-        """
-        if not isinstance(raw_data, list):
-            raw_data = [raw_data]
+        features = raw_data.get("features", []) if isinstance(raw_data, dict) else []
             
         normalized = []
-        for item in raw_data:
+        for item in features:
+            geom = item.get("geometry", {})
+            props = item.get("properties", {})
+            coords = geom.get("coordinates", [None, None]) # lon, lat
+            
             normalized.append({
-                "place_id": item.get("place_id"),
-                "name": item.get("display_name"),
-                "lat": item.get("lat"),
-                "lon": item.get("lon"),
-                "type": item.get("type"),
-                "class": item.get("class")
+                "place_id": props.get("osm_id"),
+                "name": props.get("name"),
+                "lat": coords[1],
+                "lon": coords[0],
+                "type": props.get("osm_value"),
+                "class": props.get("osm_key")
             })
         return normalized
+
+    async def geocode_single(self, location: str) -> tuple[float, float] | None:
+        try:
+            data = await self.fetch(location)
+            features = data.get("features", [])
+            if features:
+                coords = features[0]["geometry"]["coordinates"]
+                return float(coords[1]), float(coords[0]) # Return (lat, lon)
+        except Exception:
+            return None
+        return None
+
+    async def reverse_geocode_country(self, lat: float, lon: float) -> str | None:
+        logger = logging.getLogger("app.services.disl.maps")
+        try:
+            # Use Photon reverse geocoding
+            async with self.get_client() as client:
+                response = await client.get(
+                    "https://photon.komoot.io/reverse",
+                    params={"lat": lat, "lon": lon, "limit": 1}
+                )
+                response.raise_for_status()
+                data = response.json()
+                
+                features = data.get("features", [])
+                if features:
+                    props = features[0].get("properties", {})
+                    # Photon returns country code in 'countrycode' field
+                    country_code = props.get("countrycode")
+                    if country_code:
+                        logger.info(f"Reverse geocoded ({lat}, {lon}) to country: {country_code}")
+                        return country_code.upper()
+                    
+                logger.warning(f"No country code found for coordinates ({lat}, {lon})")
+                return None
+        except Exception as e:
+            logger.error(f"Reverse geocoding failed for ({lat}, {lon}): {e}")
+            return None

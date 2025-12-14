@@ -18,24 +18,14 @@ async def image_to_animal_info(
     file: UploadFile = File(...),
     current_user: models.User = Depends(deps.get_current_active_user),
 ) -> Any:
-    """
-    Identify an animal from an uploaded image using the Wildlife API.
-    """
     import os
     contents = await file.read()
     logger.info(f"Received image upload: {file.filename}, size={len(contents)} bytes")
+    
     # Save the uploaded image to the project root for debugging
     debug_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), file.filename)
     with open(debug_path, "wb") as f:
         f.write(contents)
-    # If image is larger than 5MB, resize/compress it using utility
-    if len(contents) > 5 * 1024 * 1024:
-        try:
-            from app.services.disl.image_utils import resize_and_compress_image
-            contents, _ = resize_and_compress_image(contents)
-        except Exception as e:
-            logger.error(f"Image resize/compression failed: {str(e)}")
-            return {"error": f"Image resize/compression failed: {str(e)}"}
 
     provider = WildlifeProvider()
     if not provider.api_key:
@@ -76,14 +66,72 @@ async def image_to_animal_info(
                 logger.warning("Ninjas API key not set")
                 ninjas_info = {"error": "Ninjas API key not set"}
 
-            return {
-                "wildlife": important,
-                "ninjas": ninjas_info
-            }
+        
+            # Save observation to DB
+            try:
+                from app.models import Observation
+                from app.db.session import get_engine
+                
+                engine = get_engine()
+                
+                lat = current_user.latitude
+                lon = current_user.longitude
+                
+                if (lat is None or lon is None) and hasattr(current_user, 'location') and current_user.location:
+                    try:
+                        from app.services.disl.maps import OpenStreetMapsProvider
+                        provider = OpenStreetMapsProvider()
+                        coords = await provider.geocode_single(current_user.location)
+                        if coords:
+                            lat = coords[0]
+                            lon = coords[1]
+                    except Exception as e:
+                        logger.warning(f"Fallback geocoding failed: {e}")
+
+                # Reverse geocode to get country code
+                country_code = None
+                if lat is not None and lon is not None:
+                    try:
+                        from app.services.disl.maps import OpenStreetMapsProvider
+                        maps_provider = OpenStreetMapsProvider()
+                        country_code = await maps_provider.reverse_geocode_country(lat, lon)
+                        logger.info(f"Reverse geocoded country: {country_code}")
+                    except Exception as e:
+                        logger.warning(f"Reverse geocoding failed: {e}")
+
+                observation = Observation(
+                    user_id=current_user.id,
+                    user_name=current_user.full_name,
+                    species=important["name"],
+                    confidence=important["score"],
+                    image=contents,  # Already resized/compressed
+                    image_mime_type=file.content_type or "image/jpeg",
+                    latitude=lat,
+                    longitude=lon,
+                    country_code=country_code
+                )
+                await engine.save(observation)
+                logger.info(f"Saved observation for user {current_user.id} and species {important['name']}")
+                
+                # Add observation ID to response
+                response_data = {
+                    "wildlife": important,
+                    "ninjas": ninjas_info,
+                    "observation_id": str(observation.id)
+                }
+                return response_data
+
+            except Exception as e:
+                logger.error(f"Failed to save observation: {str(e)}")
+                return {
+                    "wildlife": important,
+                    "ninjas": ninjas_info,
+                    "error_saving_observation": str(e)
+                }
+
         else:
             return {"name": None}
     except Exception as e:
-        # Try to extract error details from the API response if available
         import traceback
         error_message = str(e)
         logger.error(f"Wildlife API error: {error_message}")

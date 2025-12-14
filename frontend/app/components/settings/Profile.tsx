@@ -4,6 +4,7 @@ import { IUserProfileUpdate } from "../../lib/interfaces";
 import { useAppDispatch, useAppSelector } from "../../lib/hooks";
 import { useForm } from "react-hook-form";
 import { profile, updateUserProfile } from "../../lib/slices/authSlice";
+import { addNotice } from "../../lib/slices/toastsSlice";
 import { useEffect, useState } from "react";
 import { RootState } from "../../lib/store";
 
@@ -32,9 +33,12 @@ const renderError = (type: LiteralUnion<keyof RegisterOptions, string>) => {
 
 export default function Profile() {
   const [updatedProfile, setState] = useState({} as IUserProfileUpdate);
-
   const dispatch = useAppDispatch();
   const currentProfile = useAppSelector((state: RootState) => profile(state));
+
+  const [location, setLocation] = useState<string>("");
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
 
   const {
     register,
@@ -57,24 +61,94 @@ export default function Profile() {
       fullName: currentProfile.fullName,
       email: currentProfile.email,
     });
+    setLatitude(currentProfile.latitude ?? null);
+    setLongitude(currentProfile.longitude ?? null);
   };
 
   useEffect(() => {
     resetProfile();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentProfile]);
+
+  const geocodeLocation = async (address: string) => {
+    if (!address.trim()) {
+      setLatitude(null);
+      setLongitude(null);
+      return;
+    }
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/maps/geocode?address=${encodeURIComponent(address)}`
+      );
+      const data = await response.json();
+
+      if (data.latitude && data.longitude) {
+        setLatitude(data.latitude);
+        setLongitude(data.longitude);
+      } else {
+        dispatch(
+          addNotice({
+            title: "Location Not Found",
+            content: data.error || "Could not find coordinates for the entered location.",
+            icon: "error",
+          })
+        );
+        setLatitude(null);
+        setLongitude(null);
+      }
+    } catch (error) {
+      console.error("Geocoding error:", error);
+      dispatch(
+        addNotice({
+          title: "Geocoding Error",
+          content: "Error fetching location coordinates.",
+          icon: "error",
+        })
+      );
+      setLatitude(null);
+      setLongitude(null);
+    }
+  };
+
+  const handleLocationChange = (value: string) => {
+    setLocation(value);
+  };
+
+  const handleLocationBlur = () => {
+    geocodeLocation(location);
+  };
+
 
   async function submit(values: any) {
     let newProfile = {} as IUserProfileUpdate;
+    // Always require password if set
     if (
       (!currentProfile.password && !values.original) ||
       (currentProfile.password && values.original)
     ) {
       if (values.original) newProfile.original = values.original;
-      if (values.email) {
+
+      let changed = false;
+
+      if (values.email && values.email !== currentProfile.email) {
         newProfile.email = values.email;
-        if (values.fullName) newProfile.fullName = values.fullName;
+        changed = true;
+      }
+      if (values.fullName && values.fullName !== currentProfile.fullName) {
+        newProfile.fullName = values.fullName;
+        changed = true;
+      }
+
+      // Handle Location update
+      if (latitude !== currentProfile.latitude || longitude !== currentProfile.longitude || location) {
+        if (latitude !== null) newProfile.latitude = latitude;
+        if (longitude !== null) newProfile.longitude = longitude;
+        if (location) newProfile.location = location;
+        changed = true;
+      }
+
+      if (changed) {
         await dispatch(updateUserProfile(newProfile));
-        resetProfile();
+        setLocation("");
       }
     }
   }
@@ -123,8 +197,9 @@ export default function Profile() {
                 id="fullName"
                 name="fullName"
                 type="string"
-                onChange={(e) => setState({ fullName: e.target.value })}
+                onChange={(e) => setState({ ...updatedProfile, fullName: e.target.value })}
                 placeholder={updatedProfile.fullName}
+                defaultValue={currentProfile.fullName}
                 className="mt-1 block w-full rounded-md border border-gray-300 py-2 px-3 shadow-sm focus:border-rose-500 focus:outline-none focus:ring-rose-500 sm:text-sm"
               />
               {errors.fullName && renderError(errors.fullName.type)}
@@ -145,13 +220,41 @@ export default function Profile() {
                 name="email"
                 type="email"
                 autoComplete="email"
-                onChange={(e) => setState({ email: e.target.value })}
+                onChange={(e) => setState({ ...updatedProfile, email: e.target.value })}
                 placeholder={updatedProfile.email}
+                defaultValue={currentProfile.email}
                 className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-rose-600 focus:outline-none focus:ring-rose-600 sm:text-sm"
               />
               {errors.email && renderError(errors.email.type)}
             </div>
           </div>
+
+          <div className="space-y-1">
+            <label
+              htmlFor="location"
+              className="block text-sm font-medium text-gray-700"
+            >
+              Update Location
+            </label>
+            <div className="mt-1 group relative inline-block w-full">
+              <input
+                value={location}
+                onChange={(e) => handleLocationChange(e.target.value)}
+                onBlur={handleLocationBlur}
+                id="location"
+                name="location"
+                type="text"
+                placeholder="Enter new city or address to update coordinates"
+                className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-rose-600 focus:outline-none focus:ring-rose-600 sm:text-sm"
+              />
+              {latitude && longitude && (
+                <p className="text-xs text-gray-500 mt-1">
+                  Current Coordinates: {latitude.toFixed(4)}, {longitude.toFixed(4)}
+                </p>
+              )}
+            </div>
+          </div>
+
         </div>
         <div className="py-3 pb-6 text-right sm:px-6">
           <button

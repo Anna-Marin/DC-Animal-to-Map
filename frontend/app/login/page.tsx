@@ -4,8 +4,7 @@ import { useAppDispatch, useAppSelector } from "../lib/hooks"
 import { login, loggedIn } from "../lib/slices/authSlice"
 import { useRouter, useSearchParams } from "next/navigation"
 import { tokenIsTOTP, tokenParser } from "../lib/utilities"
-import { Switch } from "@headlessui/react"
-import { Suspense, useEffect, useState } from "react"
+import { Suspense, useEffect } from "react"
 import {
   FieldErrors,
   FieldValues,
@@ -48,75 +47,39 @@ const redirectTOTP = "/totp";
 function PasswordBlock(
   register: UseFormRegister<FieldValues>,
   errors: FieldErrors<FieldValues>,
-  oauth: boolean,
 ) {
-  if (oauth) {
-    return (
-      <div className="space-y-1">
-        <label
-          htmlFor="password"
-          className="block text-sm font-medium text-gray-700"
+  return (
+    <div className="space-y-1">
+      <label
+        htmlFor="password"
+        className="block text-sm font-medium text-gray-700"
+      >
+        Password
+      </label>
+      <div className="mt-1 group relative inline-block w-full">
+        <input
+          {...register("password", schema.password)}
+          id="password"
+          name="password"
+          type="password"
+          autoComplete="password"
+          className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-rose-600 focus:outline-none focus:ring-rose-600 sm:text-sm"
+        />
+        {errors.password && renderError(errors.password.type)}
+      </div>
+      <div className="text-sm text-right">
+        <Link
+          href="/recover-password"
+          className="font-medium text-rose-500 hover:text-rose-600"
         >
-          Password
-        </label>
-        <div className="mt-1 group relative inline-block w-full">
-          <input
-            {...register("password", schema.password)}
-            id="password"
-            name="password"
-            type="password"
-            autoComplete="password"
-            className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-rose-600 focus:outline-none focus:ring-rose-600 sm:text-sm"
-          />
-          {errors.password && renderError(errors.password.type)}
-        </div>
-        <div className="text-sm text-right">
-          <Link
-            href="/recover-password"
-            className="font-medium text-rose-500 hover:text-rose-600"
-          >
-            Forgot your password?
-          </Link>
-        </div>
+          Forgot your password?
+        </Link>
       </div>
-    );
-  } else {
-    return;
-  }
-}
-
-function LoginMessage(oauth: boolean) {
-  if (oauth)
-    return (
-      <h2 className="mt-6 text-3xl font-bold tracking-tight text-gray-900">
-        Login with password
-      </h2>
-    );
-  else
-    return (
-      <div>
-        <h2 className="mt-6 text-3xl font-bold tracking-tight text-gray-900">
-          Login with email
-        </h2>
-        <p className="text-sm font-medium text-rose-500 hover:text-rose-600 mt-6">
-          We&apos;ll check if you have an account, and create one if you
-          don&apos;t.
-        </p>
-        <p className="mt-2 text-sm text-gray-600">
-          Or{" "}
-          <Link
-            href="/register"
-            className="font-medium text-rose-600 hover:text-rose-500"
-          >
-            register with a password
-          </Link>
-        </p>
-      </div>
-    );
+    </div>
+  );
 }
 
 function UnsuspendedPage() {
-  const [oauth, setOauth] = useState(false)
   const dispatch = useAppDispatch()
   const accessToken = useAppSelector((state) => state.tokens.access_token)
   const isLoggedIn = useAppSelector((state) => loggedIn(state))
@@ -131,7 +94,6 @@ function UnsuspendedPage() {
   const {
     register,
     handleSubmit,
-    unregister,
     formState: { errors, isSubmitSuccessful },
   } = useForm();
 
@@ -141,16 +103,6 @@ function UnsuspendedPage() {
     );
   }
 
-  const toggleOauth = (e: any) => {
-    // If previous state enabled oauth, unregister password valdiation
-    if (oauth) unregister("password");
-    setOauth(e);
-  };
-
-  useEffect(() => {
-    if (searchParams && searchParams.get("oauth")) setOauth(true);
-  }, [searchParams]);
-
   useEffect(() => {
     if (isLoggedIn && accessToken) {
       return redirectTo(nextRoute);
@@ -158,14 +110,13 @@ function UnsuspendedPage() {
     if (
       accessToken &&
       tokenIsTOTP(accessToken) &&
-      (!oauth || isSubmitSuccessful)
+      isSubmitSuccessful
     ) {
       return redirectTo(redirectTOTP);
     }
     if (
       accessToken &&
-      tokenParser(accessToken).hasOwnProperty("fingerprint") &&
-      !oauth
+      tokenParser(accessToken).hasOwnProperty("fingerprint")
     ) {
       return redirectTo(redirectAfterMagic);
     }
@@ -181,13 +132,23 @@ function UnsuspendedPage() {
               src="https://tailwindui.com/img/logos/mark.svg?color=rose&shade=500"
               alt="Your Company"
             />
-            {LoginMessage(oauth)}
+            <h2 className="mt-6 text-3xl font-bold tracking-tight text-gray-900">
+              Sign in to your account
+            </h2>
+            <p className="mt-2 text-sm text-gray-600">
+              Or{" "}
+              <Link
+                href="/register"
+                className="font-medium text-rose-600 hover:text-rose-500"
+              >
+                create a new account
+              </Link>
+            </p>
           </div>
 
           <div className="mt-6">
             <form
               onSubmit={handleSubmit(submit)}
-              validation-schema="schema"
               className="space-y-6"
             >
               <div>
@@ -214,46 +175,15 @@ function UnsuspendedPage() {
                 </div>
               </div>
 
-              {PasswordBlock(register, errors, oauth)}
+              {PasswordBlock(register, errors)}
 
               <button
                 type="submit"
                 className="flex w-full justify-center rounded-md border border-transparent bg-rose-500 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-600 focus:ring-offset-2"
               >
-                Submit
+                Sign in
               </button>
             </form>
-          </div>
-
-          <div className="mt-8 flex items-center justify-between">
-            <p className="text-sm text-rose-500 align-middle">
-              If you prefer, use your password & don&apos;t email.
-            </p>
-            <Switch
-              checked={oauth}
-              onChange={toggleOauth}
-              className="group relative inline-flex h-5 w-10 flex-shrink-0 cursor-pointer items-center justify-center rounded-full focus:outline-none focus:ring-2 focus:ring-rose-600 focus:ring-offset-2"
-            >
-              <span className="sr-only">Use setting</span>
-              <span
-                aria-hidden="true"
-                className="pointer-events-none absolute h-full w-full rounded-md bg-white"
-              />
-              <span
-                aria-hidden="true"
-                className={[
-                  oauth ? "bg-rose-500" : "bg-gray-200",
-                  "pointer-events-none absolute mx-auto h-4 w-9 rounded-full transition-colors duration-200 ease-in-out",
-                ].join(" ")}
-              />
-              <span
-                aria-hidden="true"
-                className={[
-                  oauth ? "translate-x-5" : "translate-x-0",
-                  "pointer-events-none absolute left-0 inline-block h-5 w-5 transform rounded-full border border-gray-200 bg-white shadow ring-0 transition-transform duration-200 ease-in-out",
-                ].join(" ")}
-              />
-            </Switch>
           </div>
         </div>
       </div>

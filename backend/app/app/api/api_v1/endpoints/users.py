@@ -25,6 +25,7 @@ async def create_user_profile(
     full_name: str = Body(""),
     latitude: float | None = Body(None),
     longitude: float | None = Body(None),
+    location: str | None = Body(None),
 ) -> Any:
     """
     Create new user without the need to be logged in.
@@ -35,8 +36,24 @@ async def create_user_profile(
             status_code=400,
             detail="This username is not available.",
         )
+        
+    if location and (latitude is None or longitude is None):
+        from app.services.disl.maps import OpenStreetMapsProvider
+        provider = OpenStreetMapsProvider()
+        coords = await provider.geocode_single(location)
+        if coords:
+            latitude = coords[0]
+            longitude = coords[1]
+            
     # Create user auth
-    user_in = schemas.UserCreate(password=password, email=email, full_name=full_name, latitude=latitude, longitude=longitude)
+    user_in = schemas.UserCreate(
+        password=password, 
+        email=email, 
+        full_name=full_name, 
+        latitude=latitude, 
+        longitude=longitude,
+        location=location 
+    )
     user = await crud.user.create(db, obj_in=user_in)
     return user
 
@@ -69,6 +86,23 @@ async def update_user(
                 detail="This username is not available.",
             )
         user_in.email = obj_in.email
+    if obj_in.latitude is not None:
+        user_in.latitude = obj_in.latitude
+    if obj_in.longitude is not None:
+        user_in.longitude = obj_in.longitude
+        
+    # Handle location update and server-side geocoding fallback
+    if hasattr(obj_in, 'location') and obj_in.location is not None:
+        user_in.location = obj_in.location
+        # If location is provided but coords are not (or explicitly None?), attempt geocode
+        if obj_in.latitude is None or obj_in.longitude is None:
+             from app.services.disl.maps import OpenStreetMapsProvider
+             provider = OpenStreetMapsProvider()
+             coords = await provider.geocode_single(obj_in.location)
+             if coords:
+                 user_in.latitude = coords[0]
+                 user_in.longitude = coords[1]
+                
     user = await crud.user.update(db, db_obj=current_user, obj_in=user_in)
     return user
 

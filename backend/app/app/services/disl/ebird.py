@@ -15,26 +15,43 @@ class EBirdProvider(ETLProvider):
         self.logger = logging.getLogger("app.services.disl.ebird")
         self.taxonomy_cache = None
 
-    async def get_species_code(self, common_name: str) -> str:
+    async def get_species_codes(self, common_name: str, limit: int = 5) -> List[str]:
         if not self.taxonomy_cache:
             async with httpx.AsyncClient(timeout=10) as client:
                 resp = await client.get(self.taxonomy_url, params={"fmt": "json"})
                 resp.raise_for_status()
                 self.taxonomy_cache = resp.json()
-        name_l = name.lower()
-        # Exact match common name
+        
+        name_l = common_name.lower()
+        matches = []
+        
+        # Search for any species containing the name in common name
         for species in self.taxonomy_cache:
-            if species.get("comName", "").lower() == name_l:
-                return species.get("speciesCode", "")
-        # Exact match scientific name
-        for species in self.taxonomy_cache:
-            if species.get("sciName", "").lower() == name_l:
-                return species.get("speciesCode", "")
-        # Partial match common/scientific name
-        for species in self.taxonomy_cache:
-            if name_l in species.get("comName", "").lower() or name_l in species.get("sciName", "").lower():
-                return species.get("speciesCode", "")
-        raise ValueError(f"Species '{name}' not found in eBird taxonomy.")
+            # Prioritize exact match if possible, but collect all partials
+            if name_l in species.get("comName", "").lower():
+                matches.append(species)
+            elif name_l in species.get("sciName", "").lower():
+                matches.append(species)
+        
+        matches.sort(key=lambda x: (
+            x.get("comName", "").lower() != name_l, # Exact match first (False < True)
+            len(x.get("comName", "")) # Then shorter names
+        ))
+        
+        codes = []
+        seen = set()
+        for m in matches:
+            code = m.get("speciesCode")
+            if code and code not in seen:
+                codes.append(code)
+                seen.add(code)
+                if len(codes) >= limit:
+                    break
+                    
+        if not codes:
+            raise ValueError(f"Species '{common_name}' not found in eBird taxonomy.")
+            
+        return codes
 
     async def fetch(self, region_code: str = "world", species_code: str = "", max_results: int = 100) -> Any:
         print(f"[DEBUG][EBIRD-ETL] Fetching eBird data for region: {region_code}, species: {species_code}, max_results: {max_results}")
@@ -118,62 +135,122 @@ class EBirdProvider(ETLProvider):
         return normalized
 
     async def run_etl(self, region_code: str = "world", species: str = "", max_results: int = 100) -> List[dict]:
-        print(f"[DEBUG][EBIRD-ETL] Starting ETL for region: {region_code}, species: {species}")
-        self.logger.info(f"[EBIRD-ETL] Starting ETL for region: {region_code}, species: {species}")
-        species_code = species
+        print(f"[DEBUG][EBIRD-ETL] Starting ETL for region: {region_code}, species query: {species}")
+        self.logger.info(f"[EBIRD-ETL] Starting ETL for region: {region_code}, species query: {species}")
+        
+        species_codes = []
         if species:
             try:
-                species_code = await self.get_species_code(species)
-                print(f"[DEBUG][EBIRD-ETL] Resolved species '{species}' to code '{species_code}'")
+                species_codes = await self.get_species_codes(species, limit=5)
+                print(f"[DEBUG][EBIRD-ETL] Resolved '{species}' to {len(species_codes)} codes: {species_codes}")
             except Exception as e:
                 print(f"[ERROR][EBIRD-ETL] {e}")
-                self.logger.error(f"[EBIRD-ETL] {e}")
-                await self.save_raw_data([])
-                await self.save_normalized_data([])
+                
+        if not species_codes:
+            if species:
                 return []
-        # If region_code is 'world', fetch from major countries and aggregate
-        if region_code.lower() == "world":
-            country_codes = [
-                "US", "CA", "GB", "DE", "FR", "ES", "IT", "AU", "BR", "IN", "CN", "RU", "ZA", "MX", "AR", "JP"
-            ]
-            all_results = []
-            seen_obs = set()
-            for country in country_codes:
-                raw = await self.fetch(country, species_code, max_results)
-                for item in raw:
-                    obs_id = item.get("obsId") or item.get("subId")
-                    if obs_id and obs_id not in seen_obs:
-                        seen_obs.add(obs_id)
-                        all_results.append(item)
-            print(f"[DEBUG][EBIRD-ETL] Aggregated {len(all_results)} unique records from major countries.")
-            # Deduplicate before normalizing
-            seen_ids = set()
-            unique_results = []
-            for item in all_results:
-                obs_id = item.get("subId") or item.get("obsId")
-                if obs_id and obs_id not in seen_ids:
-                    seen_ids.add(obs_id)
-                    unique_results.append(item)
-            print(f"[DEBUG][EBIRD-ETL] After deduplication: {len(unique_results)} unique records.")
-            normalized = self.normalize(unique_results)
-            await self.save_raw_data(unique_results)
-            await self.save_normalized_data(normalized)
-            print(f"[DEBUG][EBIRD-ETL] ETL complete for world, species: {species}")
-            self.logger.info(f"[EBIRD-ETL] ETL complete for world, species: {species}")
-            return normalized
-        else:
-            raw = await self.fetch(region_code, species_code, max_results)
-            print(f"[DEBUG][EBIRD-ETL] Raw fetch result length: {len(raw) if raw else 0}")
-            normalized = self.normalize(raw)
-            print(f"[DEBUG][EBIRD-ETL] Normalized result length: {len(normalized) if normalized else 0}")
-            await self.save_raw_data(raw)
-            await self.save_normalized_data(normalized)
-            print(f"[DEBUG][EBIRD-ETL] ETL complete for {region_code}, species: {species}")
-            self.logger.info(f"[EBIRD-ETL] ETL complete for {region_code}, species: {species}")
-            return normalized
+            else:
+                species_codes = [""]
+
+        # Aggregate results across all codes
+        aggregated_results = []
+        seen_global = set()
+
+        for sp_code in species_codes:
+            print(f"[DEBUG][EBIRD-ETL] Fetching for species code: {sp_code}")
+            
+            # If region_code is 'world', fetch from major countries
+            if region_code.lower() == "world":
+                country_codes = [
+                    "US", "CA", "GB", "DE", "FR", "ES", "IT", "AU", "BR", "IN", "CN", "RU", "ZA", "MX", "AR", "JP"
+                ]
+                results_for_code = []
+                for country in country_codes:
+                    raw = await self.fetch(country, sp_code, max_results)
+                    results_for_code.extend(raw)
+                
+                # Deduplicate this batch
+                for item in results_for_code:
+                    obs_id = item.get("subId") or item.get("obsId")
+                    if obs_id and obs_id not in seen_global:
+                        seen_global.add(obs_id)
+                        aggregated_results.append(item)
+            else:
+                 raw = await self.fetch(region_code, sp_code, max_results)
+                 for item in raw:
+                    obs_id = item.get("subId") or item.get("obsId")
+                    if obs_id and obs_id not in seen_global:
+                        seen_global.add(obs_id)
+                        aggregated_results.append(item)
+
+        print(f"[DEBUG][EBIRD-ETL] Total unique aggregated records: {len(aggregated_results)}")
+        
+        if not aggregated_results:
+             return []
+
+        normalized = self.normalize(aggregated_results)
+        await self.save_raw_data(aggregated_results)
+        await self.save_normalized_data(normalized)
+        
+        self.logger.info(f"[EBIRD-ETL] ETL complete. Saved {len(normalized)} records.")
+        return normalized
 
     async def save_raw_data(self, raw_data: Any):
         await self.store(raw_data, status=ETLStatus.SUCCESS, metadata={"type": "raw"})
 
     async def save_normalized_data(self, normalized: List[dict]):
         await self.store(normalized, status=ETLStatus.SUCCESS, metadata={"type": "normalized"})
+
+    async def get_observations(self, species: str, days_back: int = 30) -> List[dict]:
+        from datetime import datetime, timedelta
+        from app.models.raw_data import RawData, DataSource
+
+        thirty_days_ago = datetime.utcnow() - timedelta(days=days_back)
+        
+        def extract_obs(raw_docs):
+            obs_list = []
+            species_lower = species.lower()
+            for r in raw_docs:
+                if r.metadata and r.metadata.get('type') != 'normalized':
+                    continue
+                if isinstance(r.data, list):
+                    for item in r.data:
+                        if isinstance(item, dict):
+                            item_species = (item.get('species') or '').lower()
+                            item_sci_name = (item.get('sci_name') or '').lower()
+                            if species_lower in item_species or species_lower in item_sci_name:
+                                obs_list.append(item)
+            return obs_list
+
+        results = await self.engine.find(
+            RawData,
+            RawData.source == DataSource.EBIRD,
+            RawData.fetched_at >= thirty_days_ago,
+            sort=RawData.fetched_at.desc(),
+            limit=50
+        )
+        
+        observations = extract_obs(results)
+        
+        if not observations:
+            self.logger.info(f"[EBIRD-PROVIDER] No cached observations for {species}, triggering ETL.")
+            await self.run_etl(region_code="world", species=species, max_results=100)
+            
+            results = await self.engine.find(
+                RawData,
+                RawData.source == DataSource.EBIRD,
+                RawData.fetched_at >= thirty_days_ago,
+                sort=RawData.fetched_at.desc(),
+                limit=50
+            )
+            observations = extract_obs(results)
+
+        unique_obs = []
+        seen = set()
+        for obs in observations:
+            obs_id = obs.get("obs_id")
+            if obs_id and obs_id not in seen:
+                seen.add(obs_id)
+                unique_obs.append(obs)
+                
+        return unique_obs

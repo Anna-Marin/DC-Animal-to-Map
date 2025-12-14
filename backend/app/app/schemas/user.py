@@ -22,12 +22,14 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     email: EmailStr
     password: Annotated[str | None, StringConstraints(min_length=8, max_length=64)] = None # noqa
+    location: str | None = None
 
 
 # Properties to receive via API on update
 class UserUpdate(UserBase):
     original: Annotated[str | None, StringConstraints(min_length=8, max_length=64)] = None # noqa
     password: Annotated[str | None, StringConstraints(min_length=8, max_length=64)] = None  # noqa
+    location: str | None = None
 
 
 class UserInDBBase(UserBase):

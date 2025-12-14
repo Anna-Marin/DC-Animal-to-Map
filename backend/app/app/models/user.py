@@ -25,3 +25,4 @@ class User(Base):
     refresh_tokens: list[ObjectId] = Field(default_factory=list)
     latitude: Optional[float] = Field(default=None)
     longitude: Optional[float] = Field(default=None)
+    location: Optional[str] = Field(default=None)

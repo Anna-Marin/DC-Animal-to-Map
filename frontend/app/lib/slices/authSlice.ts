@@ -18,6 +18,7 @@ import {
   getTokens,
 } from "./tokensSlice";
 import { PURGE } from "redux-persist";
+import { tokenExpired } from "../utilities";
 
 interface AuthState {
   id: string;
@@ -26,6 +27,8 @@ interface AuthState {
   is_superuser: boolean;
   fullName: string;
   password: boolean;
+  latitude: number | null;
+  longitude: number | null;
 }
 
 const initialState: AuthState = {
@@ -35,6 +38,8 @@ const initialState: AuthState = {
   is_superuser: false,
   fullName: "",
   password: false,
+  latitude: null,
+  longitude: null,
 };
 
 export const authSlice = createSlice({
@@ -48,6 +53,8 @@ export const authSlice = createSlice({
       state.is_superuser = action.payload.is_superuser;
       state.fullName = action.payload.fullName;
       state.password = action.payload.password;
+      state.latitude = action.payload.latitude ?? null;
+      state.longitude = action.payload.longitude ?? null;
     },
     deleteAuth: () => {
       return initialState;
@@ -65,7 +72,21 @@ export const loggedIn = (state: RootState) => {
   const { auth, tokens: { refresh_token, token_type, access_token } = {} } =
     state;
   const loginInformation = [auth.id, refresh_token, token_type, access_token];
-  return loginInformation.every((value) => value !== "");
+  const hasAllTokens = loginInformation.every((value) => value !== "");
+
+  // Check if tokens exist and are not expired
+  if (!hasAllTokens) return false;
+
+  try {
+    // Check if access token is expired
+    if (access_token && tokenExpired(access_token)) {
+      return false;
+    }
+    return true;
+  } catch (error) {
+    // If token parsing fails, consider it invalid
+    return false;
+  }
 };
 export const isAdmin = (state: RootState) => {
   return loggedIn(state) && state.auth.is_superuser && state.auth.is_active;
@@ -104,17 +125,25 @@ export const login = (payload: { username: string; password: string }) =>
   handleGenericLogin(getTokens, payload, true);
 
 export const register = (payload: IUserOpenProfileCreate) => async (dispatch: any) => {
+  console.log("[REGISTER] Starting registration with payload:", payload);
   try {
-    await apiAuth.createProfile(payload);
-    dispatch(
+    const result = await apiAuth.createProfile(payload);
+    console.log("[REGISTER] Profile created successfully:", result);
+
+    // Auto-login after successful registration
+    await dispatch(
       login({ username: payload.email, password: payload.password }),
     );
-  } catch (error) {
+    console.log("[REGISTER] Auto-login dispatched");
+  } catch (error: any) {
+    console.error("[REGISTER] Registration failed:", error);
+
+    const errorMessage = error?.message || error?.detail || "Registration failed. Please try again.";
+
     dispatch(
       addNotice({
         title: "Registration error",
-        content:
-          "Please check your details, or internet connection, and try again.",
+        content: errorMessage,
         icon: "error",
       }),
     );

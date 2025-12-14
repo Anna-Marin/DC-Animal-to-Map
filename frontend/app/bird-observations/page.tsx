@@ -1,36 +1,25 @@
 "use client";
 
 import React, { useEffect, useState, useRef } from "react";
-import { useAppSelector } from "../lib/hooks";
-import { token } from "../lib/slices/tokensSlice";
-import { loggedIn } from "../lib/slices/authSlice";
 import { useSearchParams, useRouter } from "next/navigation";
 import "leaflet/dist/leaflet.css";
+import { useAuthFetch } from "../lib/hooks/useAuthFetch";
+import { useProtectedRoute } from "../lib/hooks/useProtectedRoute";
 
 export default function BirdObservations() {
-    const accessToken = useAppSelector(token);
-    const isLoggedIn = useAppSelector(loggedIn);
+    const isLoggedIn = useProtectedRoute();
+    const authFetch = useAuthFetch();
+    const searchParams = useSearchParams();
+    const router = useRouter();
+
+    const speciesName = searchParams.get("species") || "";
     const [observations, setObservations] = useState<any[]>([]);
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
-    const [mounted, setMounted] = useState(false);
-    const searchParams = useSearchParams();
-    const speciesName = searchParams.get("species") || "";
     const [searchInput, setSearchInput] = useState<string>(speciesName);
     const mapRef = useRef<any>(null);
     const mapContainerRef = useRef<HTMLDivElement>(null);
-    const router = useRouter();
 
-    // Mount and check authentication (only once)
-    useEffect(() => {
-        setMounted(true);
-        if (!isLoggedIn) {
-            const next = speciesName ? `/bird-observations?species=${encodeURIComponent(speciesName)}` : "/bird-observations";
-            router.push(`/login?next=${encodeURIComponent(next)}`);
-        }
-    }, [isLoggedIn, router]); // Remove speciesName from dependencies
-
-    // Handler per la cerca
     function handleSearch(e: React.FormEvent) {
         e.preventDefault();
         if (searchInput.trim()) {
@@ -38,36 +27,39 @@ export default function BirdObservations() {
         }
     }
 
-    // Fetch observations only if logged in and mounted
+    // Fetch observations
     useEffect(() => {
-        if (!mounted || !isLoggedIn || !speciesName || !accessToken) return;
-        
+        if (!isLoggedIn || !speciesName) return;
+
+        let isCancelled = false;
+
         setLoading(true);
         setError(null);
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/maps/ebird-observations-map?species=${encodeURIComponent(speciesName)}`, {
-            method: "GET",
-            headers: {
-                Authorization: `Bearer ${accessToken}`,
-            },
-        })
-            .then(res => res.json())
-            .then(data => {
-                console.log("[BirdObservations] API response:", data);
-                if (data.detail === 'Could not validate credentials') {
-                    // Token expired, redirect to login
-                    const next = `/bird-observations?species=${encodeURIComponent(speciesName)}`;
-                    router.push(`/login?next=${encodeURIComponent(next)}`);
-                } else if (data.error) {
+
+        (async () => {
+            try {
+                const data = await authFetch(
+                    `${process.env.NEXT_PUBLIC_API_URL}/maps/ebird-observations-map?species=${encodeURIComponent(speciesName)}`
+                );
+
+                if (isCancelled) return;
+
+                if (data.error) {
                     setError(data.error);
                 } else if (data.observations) {
                     setObservations(data.observations);
                 } else {
                     setError("No observations found.");
                 }
-            })
-            .catch(err => setError(err.message || "Unknown error"))
-            .finally(() => setLoading(false));
-    }, [mounted, accessToken, speciesName]); // Remove isLoggedIn and router from dependencies
+            } catch (err: any) {
+                if (!isCancelled) setError(err.message || "Unknown error");
+            } finally {
+                if (!isCancelled) setLoading(false);
+            }
+        })();
+
+        return () => { isCancelled = true; };
+    }, [speciesName, isLoggedIn, authFetch]);
 
     // Initialize map with colored markers when observations change
     useEffect(() => {
@@ -94,7 +86,7 @@ export default function BirdObservations() {
                 observations.forEach((obs) => {
                     const color = getMarkerColor(obs.date);
                     const colorLabel = getColorLabel(obs.date);
-                    
+
                     // Create a colored circle marker
                     L.circleMarker([obs.lat, obs.lon], {
                         radius: 8,
@@ -104,7 +96,7 @@ export default function BirdObservations() {
                         opacity: 1,
                         fillOpacity: 0.8
                     })
-                    .bindPopup(`
+                        .bindPopup(`
                         <div style="font-size: 12px;">
                             <b>${obs.species}</b><br/>
                             <i>${obs.sci_name || ''}</i><br/>
@@ -114,7 +106,7 @@ export default function BirdObservations() {
                             ${obs.how_many ? `<b>Count:</b> ${obs.how_many}<br/>` : ''}
                         </div>
                     `)
-                    .addTo(map);
+                        .addTo(map);
                 });
 
                 mapRef.current = map;
@@ -153,8 +145,8 @@ export default function BirdObservations() {
         return ">30 days";
     }
 
-    // Don't render if not mounted or not logged in
-    if (!mounted || !isLoggedIn) {
+    // Don't render if not logged in
+    if (!isLoggedIn) {
         return null;
     }
 
@@ -164,7 +156,7 @@ export default function BirdObservations() {
                 <h2 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl mb-6">
                     Bird Observations
                 </h2>
-                {}
+                { }
                 <form onSubmit={handleSearch} className="flex gap-2 mb-6">
                     <input
                         type="text"
@@ -189,35 +181,35 @@ export default function BirdObservations() {
                             <h3 className="font-semibold mb-2">Color legend (recency within last month):</h3>
                             <div className="flex flex-wrap gap-4">
                                 <div className="flex items-center">
-                                    <div className="w-4 h-4 rounded-full mr-2" style={{backgroundColor: "#008000"}}></div>
+                                    <div className="w-4 h-4 rounded-full mr-2" style={{ backgroundColor: "#008000" }}></div>
                                     <span>0-1 days</span>
                                 </div>
                                 <div className="flex items-center">
-                                    <div className="w-4 h-4 rounded-full mr-2" style={{backgroundColor: "#7fff00"}}></div>
+                                    <div className="w-4 h-4 rounded-full mr-2" style={{ backgroundColor: "#7fff00" }}></div>
                                     <span>2-3 days</span>
                                 </div>
                                 <div className="flex items-center">
-                                    <div className="w-4 h-4 rounded-full mr-2" style={{backgroundColor: "#ffff00"}}></div>
+                                    <div className="w-4 h-4 rounded-full mr-2" style={{ backgroundColor: "#ffff00" }}></div>
                                     <span>4-7 days</span>
                                 </div>
                                 <div className="flex items-center">
-                                    <div className="w-4 h-4 rounded-full mr-2" style={{backgroundColor: "#ffae42"}}></div>
+                                    <div className="w-4 h-4 rounded-full mr-2" style={{ backgroundColor: "#ffae42" }}></div>
                                     <span>8-14 days</span>
                                 </div>
                                 <div className="flex items-center">
-                                    <div className="w-4 h-4 rounded-full mr-2" style={{backgroundColor: "#ff0000"}}></div>
+                                    <div className="w-4 h-4 rounded-full mr-2" style={{ backgroundColor: "#ff0000" }}></div>
                                     <span>15-30 days</span>
                                 </div>
                                 <div className="flex items-center">
-                                    <div className="w-4 h-4 rounded-full mr-2" style={{backgroundColor: "#cccccc"}}></div>
+                                    <div className="w-4 h-4 rounded-full mr-2" style={{ backgroundColor: "#cccccc" }}></div>
                                     <span>&gt;30 days</span>
                                 </div>
                             </div>
                         </div>
                         {/* Map with colored markers */}
                         <div className="mb-8">
-                            <div 
-                                ref={mapContainerRef} 
+                            <div
+                                ref={mapContainerRef}
                                 className="w-full h-[600px] rounded-lg border border-gray-300"
                                 style={{ minHeight: 500, height: "70vh", zIndex: 0 }}
                             />
@@ -228,9 +220,9 @@ export default function BirdObservations() {
                             {observations.map((obs, idx) => (
                                 <div key={idx} className="p-4 border rounded-lg bg-gray-50 hover:shadow-md transition-shadow">
                                     <div className="flex items-start mb-2">
-                                        <div 
+                                        <div
                                             className="w-6 h-6 rounded-full mr-3 flex-shrink-0 mt-1"
-                                            style={{backgroundColor: getMarkerColor(obs.date)}}
+                                            style={{ backgroundColor: getMarkerColor(obs.date) }}
                                         ></div>
                                         <div className="flex-1">
                                             <h4 className="font-semibold">{obs.species}</h4>
