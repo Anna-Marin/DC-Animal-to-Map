@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, Suspense } from "react";
 import { useAppSelector } from "../../lib/hooks";
 import { token } from "../../lib/slices/tokensSlice";
 import { useSearchParams } from "next/navigation";
 
-export default function EBirdObservations() {
+function EBirdObservationsContent() {
     const accessToken = useAppSelector(token);
     const [observations, setObservations] = useState<any[]>([]);
     const [error, setError] = useState<string | null>(null);
@@ -167,4 +167,12 @@ export default function EBirdObservations() {
         const maxLat = Math.max(...lats) + 1;
         return `${minLon},${minLat},${maxLon},${maxLat}`;
     }
+}
+
+export default function EBirdObservations() {
+    return (
+        <Suspense fallback={<div>Loading...</div>}>
+            <EBirdObservationsContent />
+        </Suspense>
+    );
 }

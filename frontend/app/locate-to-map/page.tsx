@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, Suspense } from "react";
 import { fetchEBirdObservations } from "../lib/api/ebird";
 import "leaflet/dist/leaflet.css";
 import { markerIcon2x, markerIcon, markerShadow } from "./leaflet-icons";
@@ -8,7 +8,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useAuthFetch } from "../lib/hooks/useAuthFetch";
 import { useProtectedRoute } from "../lib/hooks/useProtectedRoute";
 
-export default function LocateToMap() {
+function LocateToMapContent() {
     const isLoggedIn = useProtectedRoute("/locate-to-map");
     const authFetch = useAuthFetch();
     const searchParams = useSearchParams();
@@ -207,5 +207,13 @@ export default function LocateToMap() {
                 )}
             </div>
         </div>
+    );
+}
+
+export default function LocateToMap() {
+    return (
+        <Suspense fallback={<div>Loading...</div>}>
+            <LocateToMapContent />
+        </Suspense>
     );
 }

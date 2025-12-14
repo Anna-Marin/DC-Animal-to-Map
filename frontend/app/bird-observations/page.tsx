@@ -1,12 +1,12 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import "leaflet/dist/leaflet.css";
 import { useAuthFetch } from "../lib/hooks/useAuthFetch";
 import { useProtectedRoute } from "../lib/hooks/useProtectedRoute";
 
-export default function BirdObservations() {
+function BirdObservationsContent() {
     const isLoggedIn = useProtectedRoute();
     const authFetch = useAuthFetch();
     const searchParams = useSearchParams();
@@ -245,5 +245,13 @@ export default function BirdObservations() {
                 )}
             </div>
         </div>
+    );
+}
+
+export default function BirdObservations() {
+    return (
+        <Suspense fallback={<div>Loading...</div>}>
+            <BirdObservationsContent />
+        </Suspense>
     );
 }
