@@ -56,6 +56,7 @@ export default function LocateToMap() {
                     mapRef.current.remove();
                 }
                 // Create new map
+                if (!mapContainerRef.current) return;
                 const map = L.map(mapContainerRef.current).setView(
                     [mapData.center.lat, mapData.center.lon],
                     2

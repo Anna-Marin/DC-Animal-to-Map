@@ -67,14 +67,6 @@ function PasswordBlock(
         />
         {errors.password && renderError(errors.password.type)}
       </div>
-      <div className="text-sm text-right">
-        <Link
-          href="/recover-password"
-          className="font-medium text-rose-500 hover:text-rose-600"
-        >
-          Forgot your password?
-        </Link>
-      </div>
     </div>
   );
 }
