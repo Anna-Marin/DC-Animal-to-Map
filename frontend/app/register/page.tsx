@@ -47,8 +47,8 @@ function UnsuspendedPage() {
     const router = useRouter();
 
     const [location, setLocation] = useState<string>("");
-    const [latitude, setLatitude] = useState<number | null>(null);
-    const [longitude, setLongitude] = useState<number | null>(null);
+    const [latitude, setLatitude] = useState<number | null | undefined>(null);
+    const [longitude, setLongitude] = useState<number | null | undefined>(null);
 
     const geocodeLocation = async (address: string) => {
         if (!address.trim()) {

@@ -34,6 +34,6 @@ export interface IUserOpenProfileCreate {
   email: string;
   fullName?: string;
   password: string;
-  latitude?: number;
-  longitude?: number;
+  latitude?: number | null | undefined;
+  longitude?: number | null | undefined;
 }

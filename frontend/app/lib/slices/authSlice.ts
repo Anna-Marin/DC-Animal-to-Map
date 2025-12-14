@@ -27,8 +27,8 @@ interface AuthState {
   is_superuser: boolean;
   fullName: string;
   password: boolean;
-  latitude: number | null;
-  longitude: number | null;
+  latitude: number | null | undefined;
+  longitude: number | null | undefined;
 }
 
 const initialState: AuthState = {

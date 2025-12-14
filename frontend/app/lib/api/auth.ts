@@ -119,8 +119,8 @@ export const apiAuth = {
         email: data.email,
         password: data.password,
         full_name: data.fullName,
-        latitude: data.latitude,
-        longitude: data.longitude,
+        latitude: data.latitude ?? undefined,
+        longitude: data.longitude ?? undefined,
       }),
       headers: {
         "Content-Type": "application/json",
