@@ -19,18 +19,14 @@ const renderUserProfiles = (userProfiles: IUserProfile[]) => {
         <dl className="font-normal lg:hidden">
           <dt className="sr-only">Email</dt>
           <dd className="mt-1 truncate text-gray-700">{profile.email}</dd>
-          <dt className="sr-only sm:hidden">Validated</dt>
-          <dd className="mt-1 truncate sm:hidden">
-            <CheckState check={profile.email_validated} />
-          </dd>
+          {/* Email validation removed from project */}
         </dl>
       </td>
       <td className="hidden px-3 py-4 text-sm text-gray-500 lg:table-cell">
         {profile.email}
       </td>
-      <td className="hidden px-3 py-4 text-sm lg:table-cell">
-        <CheckState check={profile.email_validated} />
-      </td>
+      {/* Email validation column removed */}
+      <td className="hidden px-3 py-4 text-sm lg:table-cell">-</td>
       <td className="px-3 py-4 text-sm text-gray-500">
         <ToggleActive check={profile.is_active} email={profile.email} />
       </td>
@@ -89,11 +85,12 @@ export default function UserTable() {
             >
               Email
             </th>
+            { }
             <th
               scope="col"
               className="hidden px-3 py-3.5 text-left text-sm font-semibold text-gray-900 lg:table-cell"
             >
-              Validated
+              Status
             </th>
             <th
               scope="col"
