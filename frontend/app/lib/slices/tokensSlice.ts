@@ -73,8 +73,6 @@ export const getTokens = (payload: { username: string; password?: string }) => {
           dispatch(deleteTokens());
           return;
         }
-        // Debug log
-        // Magic link login removed
       }
     } catch (error) {
       dispatch(

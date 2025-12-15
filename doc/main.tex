@@ -144,7 +144,7 @@ The distl is a set of ETL (Extract, Transform, Load) providers. Each provider is
 
 The ETL process works like this: first, the provider fetches raw data from the external API. Then, it normalizes the data, this means converting all the different field names, types, and structures into a common format that is used. Finally, the provider saves both the raw and normalized data in MongoDB, so can always trace back where each observation came from.
 
-Since all ETL looked pretty similar, we created a base abstract class called `ETLProvider` that defines the common interface and shared functionality for all providers. Each specific provider (like `EBirdProvider`, `WildlifeProvider`, etc.) extends this base class and implements the details for its own data source. This design pattern is shown in the following diagram:
+Since all ETL looked pretty similar, we created a base abstract class called \texttt{ETLProvider} that defines the common interface and shared functionality for all providers. Each specific provider (like \texttt{EBirdProvider}, \texttt{WildlifeProvider}, etc.) extends this base class and implements the details for its own data source. This design pattern is shown in the following diagram:
 
 \begin{figure}[H]
     \centering
@@ -156,21 +156,85 @@ Since all ETL looked pretty similar, we created a base abstract class called `ET
 
 \subsection{EBirdProvider}
 
-The `EBirdProvider` extends `ETLProvider` and is responsible for importing bird data from the eBird API. It sets up API keys, URLs, and a logger in its constructor. The method `get_species_codes` looks up eBird species codes for a given common name, using a cached taxonomy. The `fetch` method downloads raw bird observation data, handling retries and deduplication. The `normalize` method converts eBird data into the internal schema, mapping fields like species, sci_name, lat, lon, date, location, how_many, and obs_id. There are also methods to save raw and normalized data (`save_raw_data`, `save_normalized_data`), and `get_observations` retrieves recent observations for a species from the database, using cache if available.
+The \texttt{EBirdProvider} extends \texttt{ETLProvider} and is responsible for importing bird data from the eBird API. It sets up API keys, URLs, and a logger in its constructor. The method \texttt{get\_species\_codes} looks up eBird species codes for a given common name, using a cached taxonomy. The \texttt{fetch} method downloads raw bird observation data, handling retries and deduplication. The \texttt{normalize} method converts eBird data into the internal schema, mapping fields like species, sci\_name, lat, lon, date, location, how\_many, and obs\_id. There are also methods to save raw and normalized data (\texttt{save\_raw\_data}, \texttt{save\_normalized\_data}), and \texttt{get\_observations} retrieves recent observations for a species from the database, using cache if available.
 
 \subsection{WildlifeProvider}
 
-The `WildlifeProvider` is for the Wildlife API. It sets up API keys and URLs in its constructor. The `fetch` method handles image preprocessing (resizing or compressing if needed)\footnote{Compressing is a key part because Wildlife API imagee limit size is 5MB and the total API usage is 1GB}, sends the image to the Wildlife API, and returns the response. The `normalize` method extracts and standardizes annotation data (id, label, confidence, taxonomy, bbox) from the API response.
+The \texttt{WildlifeProvider} is for the Wildlife API. It sets up API keys and URLs in its constructor. The \texttt{fetch} method handles image preprocessing (resizing or compressing if needed)\footnote{Compressing is a key part because Wildlife API imagee limit size is 5MB and the total API usage is 1GB}, sends the image to the Wildlife API, and returns the response. The \texttt{normalize} method extracts and standardizes annotation data (id, label, confidence, taxonomy, bbox) from the API response.
 
 \subsection{NinjasProvider}
 
-The `NinjasProvider` is for the Ninjas API. It sets up API keys and URLs in its constructor. The `fetch` method queries the Ninjas API for animal data by name, tries fallback strategies if no results, and filters results. The `normalize` method converts the Ninjas API response into a list of dictionaries with name, taxonomy, locations, and characteristics. The `save` method saves both raw and normalized data to the database.
+The \texttt{NinjasProvider} is for the Ninjas API. It sets up API keys and URLs in its constructor. The \texttt{fetch} method queries the Ninjas API for animal data by name, tries fallback strategies if no results, and filters results. The \texttt{normalize} method converts the Ninjas API response into a list of dictionaries with name, taxonomy, locations, and characteristics. The \texttt{save} method saves both raw and normalized data to the database.
 
 \subsection{OpenStreetMapsProvider}
 
-The `OpenStreetMapsProvider` is for geospatial data. It sets up API keys and URLs in its constructor. The method `get_map_for_locations` takes a list of locations, queries Photon (an OSM geocoder), extracts coordinates, and returns them along with a computed center. The `fetch` method queries the Photon API for geocoding results, and `normalize` converts Photon/OSM data into a list of dictionaries with place_id, coordinates, and other properties.
+The \texttt{OpenStreetMapsProvider} is for geospatial data and geocoding. It sets up API keys and Photon geocoding service URLs in its constructor. The provider has several methods: \texttt{get\_map\_for\_locations} takes a list of locations, queries Photon (an OpenStreetMap geocoder) for each one, extracts coordinates, and returns them along with a computed center point. The \texttt{fetch} method queries the Photon API for geocoding results given a location query string. The \texttt{normalize} method converts Photon/OSM data into a list of dictionaries with place\_id, name, coordinates, type, and class. Additionally, \texttt{geocode\_single} takes a single location string and returns a tuple of latitude and longitude coordinates, while \texttt{reverse\_geocode\_country} takes latitude and longitude coordinates and returns the country code by performing reverse geocoding.
 
 All providers follow the same pattern: fetch data from their source, normalize it, and store it in MongoDB. Each provider handles the quirks and requirements of its own API, so the rest of the application can work with a unified data model.
+
+\section{API Endpoints Documentation}
+
+The backend exposes several REST API endpoints organized into three main categories: user management, analytical endpoints, and ETL system management. All endpoints require authentication via JWT access tokens (except login/register).
+
+\subsection{User Management Endpoints}
+
+\subsubsection{POST /api/v1/login/oauth}
+Authenticates a user with username and password using OAuth2 standard. Receives form data with \texttt{username} and \texttt{password} fields. Returns an access token (JWT, 30-minute expiry) and a refresh token (JWT, 30-day expiry). The refresh token is stored in the database for revocation control. Possible responses: 200 with token payload, 400 for incorrect credentials, or 401 for inactive users.
+
+\subsubsection{POST /api/v1/login/refresh}
+Refreshes an expired access token using a valid refresh token. Receives the refresh token in the request body. Validates the token signature and checks if it exists in the database (not revoked). Returns a new access token. Possible responses: 200 with new token, 401 if token is invalid or revoked, 404 if token not found in database.
+
+\subsubsection{POST /api/v1/login/logout}
+Revokes the current user's refresh token, effectively logging them out. Requires authentication via access token. Removes the refresh token from the database. Returns a success message. Possible responses: 200 with confirmation message, 401 if not authenticated.
+
+\subsubsection{GET /api/v1/users/}
+Retrieves the current authenticated user's profile information. Requires valid access token. Returns user data including id, email, username, full name, role, and active status. Possible responses: 200 with user object, 401 if not authenticated.
+
+\subsubsection{GET /api/v1/users/all}
+Lists all users in the system (admin only). Requires admin role. Supports pagination with \texttt{skip} and \texttt{limit} query parameters. Returns array of user objects. Possible responses: 200 with user list, 401 if not authenticated, 403 if not admin.
+
+\subsubsection{POST /api/v1/users/create}
+Creates a new user account (admin only). Receives user data in request body: email, username, password, full name, and optional role. Validates email uniqueness and password strength. Returns the created user object. Possible responses: 201 with new user, 400 if email already exists, 401 if not authenticated, 403 if not admin.
+
+\subsubsection{PUT /api/v1/users/\{user\_id\}}
+Updates an existing user's information. Users can update their own profile; admins can update any user. Receives partial user data to update. Returns the updated user object. Possible responses: 200 with updated user, 401 if not authenticated, 403 if insufficient permissions, 404 if user not found.
+
+\subsubsection{DELETE /api/v1/users/\{user\_id\}}
+Deletes a user account (admin only). Permanently removes the user from the database. Returns the deleted user object. Possible responses: 200 with deleted user, 401 if not authenticated, 403 if not admin, 404 if user not found.
+
+\subsubsection{PUT /api/v1/users/\{user\_id\}/role}
+Changes a user's role (admin only). Receives new role in request body (\texttt{user} or \texttt{admin}). Updates the user's role in the database. Returns the updated user object. Possible responses: 200 with updated user, 401 if not authenticated, 403 if not admin, 404 if user not found.
+
+\subsection{Analytical Endpoints}
+
+\subsubsection{POST /api/v1/image-upload/image-to-animal-info}
+Identifies animals in an uploaded image using the Wildlife API. Receives a multipart form with an image file. Sends the image to WildlifeProvider which processes it (resizes/compresses if needed), queries the Wildlife API, and returns identified species with confidence scores, bounding boxes, and taxonomy information. Called from the frontend's image-to-animal page. Possible responses: 200 with array of detected animals, 400 if no file provided, 401 if not authenticated, 500 if Wildlife API fails.
+
+\subsubsection{GET /api/v1/maps/geocode}
+Converts location names to geographic coordinates using Photon/OpenStreetMap geocoding. Receives a \texttt{query} parameter with the location string. Uses OpenStreetMapsProvider to query Photon API and returns latitude, longitude, and place metadata. Called from frontend map components. Possible responses: 200 with geocoding results, 400 if query is empty, 401 if not authenticated, 404 if location not found.
+
+\subsubsection{POST /api/v1/maps/animal-to-map}
+Creates a map visualization showing locations where specific animals have been observed. Receives an array of location names in the request body. For each location, geocodes it using OpenStreetMapsProvider (returns only the first/best coordinate match per location to avoid duplicates), retrieves eBird observations for that area, and returns coordinates plus a computed center point for map rendering. Called from the frontend's animal-to-map page. Possible responses: 200 with location coordinates and center, 401 if not authenticated, 500 if geocoding fails.
+
+\subsubsection{GET /api/v1/maps/ebird-observations-map}
+Retrieves eBird bird observations for map display. Receives optional query parameters for filtering: \texttt{species\_code}, \texttt{region\_code}, \texttt{back} (days back), and \texttt{max\_results}. Uses EBirdProvider to fetch observations from eBird API, normalizes the data, and returns observation points with coordinates. Called from frontend map visualization components. Possible responses: 200 with observation array, 401 if not authenticated, 500 if eBird API fails.
+
+\subsubsection{GET /api/v1/observations/search}
+Searches for animal observations across multiple data sources. Receives optional query parameters: \texttt{species\_name}, \texttt{common\_name}, \texttt{location}, \texttt{start\_date}, \texttt{end\_date}, \texttt{source} (ebird, wildlife, ninjas). Queries MongoDB observations collection with filters, performs text search if species name provided, and returns matching observations with pagination. Called from frontend search interfaces. Possible responses: 200 with search results and total count, 401 if not authenticated.
+
+\subsection{ETL System Endpoints}
+
+\subsubsection{POST /api/v1/disl/\{provider\}/run}
+Triggers an ETL process for a specific data provider. Receives \texttt{provider} path parameter (ebird, wildlife, ninjas, or openstreetmaps) and optional query parameters specific to each provider (e.g., species name for eBird, location for maps). Instantiates the corresponding ETLProvider class, executes the fetch-normalize-save pipeline, and returns the processed results. Can run as background task for long operations. Called from frontend data ingestion interfaces or admin panels. Possible responses: 200 with ETL results, 400 if invalid provider or parameters, 401 if not authenticated, 500 if ETL process fails.
+
+\subsubsection{GET /api/v1/disl/\{provider\}/results}
+Retrieves the most recent results from a specific ETL provider. Receives \texttt{provider} path parameter. Queries the raw\_data or observations collection for the latest entries from that provider. Returns normalized data that was previously extracted. Useful for checking what data was last imported. Possible responses: 200 with result array, 401 if not authenticated, 404 if no results found.
+
+\subsubsection{GET /api/v1/disl/\{provider\}/history}
+Fetches historical ETL execution logs for a provider. Receives \texttt{provider} path parameter and optional pagination parameters. Returns metadata about past ETL runs including timestamps, record counts, success/failure status, and error messages. Useful for monitoring and debugging data pipelines. Possible responses: 200 with execution history, 401 if not authenticated.
+
+\subsubsection{GET /api/v1/analytics/temporal-patterns}
+Analyzes temporal patterns in animal observations. Receives optional query parameters: \texttt{species}, \texttt{location}, \texttt{time\_granularity} (hour, day, month, year). Aggregates observation data by time periods, calculates frequencies, identifies peak activity times, and returns statistical summaries. Uses MongoDB aggregation pipeline for efficient time-series analysis. Called from frontend analytics dashboards. Possible responses: 200 with temporal analysis results, 401 if not authenticated, 400 if invalid parameters.
 
 \end{document}
 
