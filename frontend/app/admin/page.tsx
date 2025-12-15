@@ -7,12 +7,25 @@ import { addNotice } from "../lib/slices/toastsSlice"
 import { useAppDispatch, useAppSelector } from "../lib/hooks"
 import { useAuthFetch } from "../lib/hooks/useAuthFetch"
 import { useProtectedRoute } from "../lib/hooks/useProtectedRoute"
-
 interface ETLProvider {
     id: string;
     name: string;
     description: string;
 }
+
+interface user{
+    name:string;
+    email: string;
+    id:string;
+}
+let userList: user[] =[]
+const userQuery =`
+        {
+            name
+            email
+            id
+        }
+    `
 
 const etlProviders: ETLProvider[] = [
     { id: "wildlife", name: "Wildlife API", description: "Fetch wildlife data from Wildlife API" },
@@ -20,6 +33,7 @@ const etlProviders: ETLProvider[] = [
     { id: "maps", name: "Maps Data", description: "Fetch geographic map data" },
     { id: "ebird", name: "eBird", description: "Fetch bird observation data from eBird" },
 ];
+
 
 export default function AdminPage() {
     const dispatch = useAppDispatch();
@@ -34,6 +48,8 @@ export default function AdminPage() {
         species: "",
         max_results: 100,
     });
+    
+  
 
     useEffect(() => {
         if (isLoggedIn && !isUserAdmin) {
@@ -88,6 +104,33 @@ export default function AdminPage() {
             setLoading(null);
         }
     };
+ async function UserList() {
+    let tempList:user[]=[]
+     fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/all`,
+        {
+            method: "GET",
+            
+        }
+    ).then(response => response.json())
+    .then(data=>tempList=data)
+    userList = tempList;
+     return (
+    <div>
+      <ul>
+        {
+          userList.map(user=>
+            <>
+            <li>{user.name}</li>
+            <li>{user.id}</li>
+            <li>{user.email}</li>
+            </>
+          )
+        }
+      </ul>
+    </div>
+     )
+ }
 
     return (
         <main className="min-h-screen bg-gray-50 py-8">
@@ -98,7 +141,6 @@ export default function AdminPage() {
                         <p className="text-sm text-gray-600 mb-8">
                             Manage and trigger ETL processes for all data providers
                         </p>
-
                         <div className="space-y-6">
                             {etlProviders.map((provider) => (
                                 <div
@@ -200,6 +242,16 @@ export default function AdminPage() {
                                 </div>
                             ))}
                         </div>
+                            <div className="space-y-6">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex-1">
+                                        <h3 className="text-lg font-medium text-gray-900">
+                                            User List:
+                                        </h3>
+                                            {UserList()}
+                                    </div>
+                                </div>
+                            </div>
                     </div>
                 </div>
             </div>
