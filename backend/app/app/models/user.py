@@ -1,8 +1,7 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Optional
 from datetime import datetime
-from pydantic import EmailStr
-from odmantic import ObjectId, Field
+from pydantic import EmailStr, Field
 
 from app.db.base_class import Base
 
@@ -22,7 +21,7 @@ class User(Base):
     hashed_password: str
     is_active: bool = Field(default=True)
     is_superuser: bool = Field(default=False)
-    refresh_tokens: list[ObjectId] = Field(default_factory=list)
+    refresh_tokens: list[str] = Field(default_factory=list)
     latitude: Optional[float] = Field(default=None)
     longitude: Optional[float] = Field(default=None)
     location: Optional[str] = Field(default=None)

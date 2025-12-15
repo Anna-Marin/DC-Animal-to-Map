@@ -1,9 +1,9 @@
 from typing import Any, List
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends, Query
 from pydantic import BaseModel
+from motor.core import AgnosticDatabase as MongoDatabase
 from app.models.raw_data import RawData, DataSource
 from app.models.user import User
-from app.db.session import get_engine
 from app.services.disl import WildlifeProvider, NinjasProvider, OpenStreetMapsProvider
 from app.services.disl.ebird import EBirdProvider
 from app.api import deps
@@ -74,45 +74,50 @@ async def get_etl_results(
     limit: int = Query(10, ge=1, le=100),
     current_user: User = Depends(deps.get_current_active_superuser)
 ):
-    engine = get_engine()
-    results = await engine.find(
-        RawData,
-        RawData.source == provider,
-        sort=RawData.fetched_at.desc(),
-        limit=limit
-    )
+    from app.db.session import MongoDatabase
+    db = MongoDatabase()
+    raw_data_collection = db["raw_data"]
     
-    if species:
-        # Filter results by species
-        filtered_results = []
-        for r in results:
-            if isinstance(r.data, list):
+    cursor = raw_data_collection.find(
+        {"source": provider.value}
+    ).sort("fetched_at", -1).limit(limit)
+    
+    results = []
+    async for doc in cursor:
+        doc["id"] = str(doc["_id"])
+        del doc["_id"]
+        
+        if species:
+            # Filter by species
+            if isinstance(doc.get("data"), list):
                 filtered_data = [
-                    item for item in r.data 
+                    item for item in doc["data"] 
                     if isinstance(item, dict) and species.lower() in str(item.get('species', '')).lower()
                 ]
                 if filtered_data:
-                    filtered_results.append(r)
-            elif isinstance(r.data, dict) and species.lower() in str(r.data.get('species', '')).lower():
-                filtered_results.append(r)
-        results = filtered_results[:limit]
+                    results.append(RawData(**doc))
+            elif isinstance(doc.get("data"), dict) and species.lower() in str(doc["data"].get('species', '')).lower():
+                results.append(RawData(**doc))
+        else:
+            results.append(RawData(**doc))
     
-    return results
+    return results[:limit]
 
 @router.get("/{provider}/history", response_model=List[dict])
 async def get_etl_history(
     provider: DataSource,
     limit: int = Query(20, ge=1, le=100),
+    db: MongoDatabase = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_superuser)
 ):
 
-    engine = get_engine()
-    results = await engine.find(
-        RawData,
-        RawData.source == provider,
-        sort=RawData.fetched_at.desc(),
-        limit=limit
-    )
+    cursor = db["raw_data"].find(
+        {"source": provider.value}
+    ).sort("fetched_at", -1).limit(limit)
+    
+    results = []
+    async for doc in cursor:
+        results.append(RawData(**doc))
     
     return [
         {

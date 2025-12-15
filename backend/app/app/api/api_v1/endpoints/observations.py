@@ -4,7 +4,6 @@ from app.api import deps
 from app.models.user import User
 from app.models.observation import Observation
 from app.services.disl.ebird import EBirdProvider
-from app.db.session import get_engine
 import logging
 import base64
 
@@ -69,30 +68,32 @@ async def search_observations(
         results["ebird_error"] = str(e)
 
     try:
-        engine = get_engine()
-        queries = [Observation.latitude != None]
+        from app.db.session import MongoDatabase
+        db = MongoDatabase()
+        observations_collection = db["observations"]
+        
+        # Build query
+        query = {"latitude": {"$ne": None}}
         
         # Filter by country if not "world"
         if region_code != "world":
-            queries.append(Observation.country_code == region_code)
-        
-        local_obs = await engine.find(Observation, *queries)
+            query["country_code"] = region_code
         
         formatted_local = []
-        for obs in local_obs:
-            if species and species.lower() not in obs.species.lower():
+        async for obs_doc in observations_collection.find(query):
+            if species and species.lower() not in obs_doc.get("species", "").lower():
                 continue
 
-            image_b64 = base64.b64encode(obs.image).decode('utf-8')
+            image_b64 = base64.b64encode(obs_doc["image"]).decode('utf-8')
             formatted_local.append({
-                "id": str(obs.id),
-                "species": obs.species,
-                "confidence": obs.confidence,
-                "user_name": obs.user_name,
-                "timestamp": obs.timestamp,
-                "lat": obs.latitude,
-                "lon": obs.longitude,
-                "image": f"data:{obs.image_mime_type};base64,{image_b64}"
+                "id": str(obs_doc["_id"]),
+                "species": obs_doc["species"],
+                "confidence": obs_doc["confidence"],
+                "user_name": obs_doc["user_name"],
+                "timestamp": obs_doc["timestamp"],
+                "lat": obs_doc["latitude"],
+                "lon": obs_doc["longitude"],
+                "image": f"data:{obs_doc['image_mime_type']};base64,{image_b64}"
             })
         results["local"] = formatted_local
         

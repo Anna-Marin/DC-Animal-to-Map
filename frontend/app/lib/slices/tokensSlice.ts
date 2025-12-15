@@ -21,9 +21,6 @@ export const tokensSlice = createSlice({
   name: "tokens",
   initialState,
   reducers: {
-    setMagicToken: (state: TokensState, action: PayloadAction<IWebToken>) => {
-      state.access_token = action.payload.claim;
-    },
     setTokens: (state: TokensState, action: PayloadAction<ITokenResponse>) => {
       state.access_token = action.payload.access_token;
       state.refresh_token = action.payload.refresh_token;
@@ -35,7 +32,7 @@ export const tokensSlice = createSlice({
   },
 });
 
-export const { setMagicToken, setTokens, deleteTokens } = tokensSlice.actions;
+export const { setTokens, deleteTokens } = tokensSlice.actions;
 
 export const getTokens = (payload: { username: string; password?: string }) => {
   return async (dispatch: Dispatch) => {
@@ -77,13 +74,7 @@ export const getTokens = (payload: { username: string; password?: string }) => {
           return;
         }
         // Debug log
-        console.log("loginWithMagicLink payload:", payload);
-        const response = await apiAuth.loginWithMagicLink(payload.username);
-        if (response.claim) {
-          dispatch(setMagicToken(response));
-        } else {
-          throw "error";
-        }
+        // Magic link login removed
       }
     } catch (error) {
       dispatch(
@@ -98,35 +89,7 @@ export const getTokens = (payload: { username: string; password?: string }) => {
   };
 };
 
-export const validateMagicTokens =
-  (token: string) => async (dispatch: Dispatch) => {
-    try {
-      const data: string = token;
-      // Check the two magic tokens meet basic criteria
-      const localClaim = tokenParser(data);
-      const magicClaim = tokenParser(token);
-      if (
-        localClaim.hasOwnProperty("fingerprint") &&
-        magicClaim.hasOwnProperty("fingerprint") &&
-        localClaim["fingerprint"] === magicClaim["fingerprint"]
-      ) {
-        const response = await apiAuth.validateMagicLink(token, {
-          claim: data,
-        });
-        dispatch(setTokens(response));
-      }
-    } catch (error) {
-      dispatch(
-        addNotice({
-          title: "Login error",
-          content:
-            "Ensure you're using the same browser and that the token hasn't expired.",
-          icon: "error",
-        }),
-      );
-      dispatch(deleteTokens());
-    }
-  };
+// Magic link validation removed
 
 export const validateTOTPClaim =
   (data: string) => async (dispatch: Dispatch, getState: () => RootState) => {

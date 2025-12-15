@@ -1,6 +1,7 @@
 
 import logging
 from typing import Any
+from datetime import datetime
 from fastapi import APIRouter, Depends, UploadFile, File
 from app.api import deps
 import app.models as models
@@ -70,9 +71,11 @@ async def image_to_animal_info(
             # Save observation to DB
             try:
                 from app.models import Observation
-                from app.db.session import get_engine
+                from app.db.session import MongoDatabase
+                from bson import ObjectId
                 
-                engine = get_engine()
+                db = MongoDatabase()
+                observations_collection = db["observations"]
                 
                 lat = current_user.latitude
                 lon = current_user.longitude
@@ -99,25 +102,27 @@ async def image_to_animal_info(
                     except Exception as e:
                         logger.warning(f"Reverse geocoding failed: {e}")
 
-                observation = Observation(
-                    user_id=current_user.id,
-                    user_name=current_user.full_name,
-                    species=important["name"],
-                    confidence=important["score"],
-                    image=contents,  # Already resized/compressed
-                    image_mime_type=file.content_type or "image/jpeg",
-                    latitude=lat,
-                    longitude=lon,
-                    country_code=country_code
-                )
-                await engine.save(observation)
+                observation_data = {
+                    "user_id": current_user.id,
+                    "user_name": current_user.full_name,
+                    "species": important["name"],
+                    "confidence": important["score"],
+                    "image": contents,  # Already resized/compressed
+                    "image_mime_type": file.content_type or "image/jpeg",
+                    "latitude": lat,
+                    "longitude": lon,
+                    "country_code": country_code,
+                    "timestamp": datetime.utcnow()
+                }
+                result = await observations_collection.insert_one(observation_data)
+                observation_id = str(result.inserted_id)
                 logger.info(f"Saved observation for user {current_user.id} and species {important['name']}")
                 
                 # Add observation ID to response
                 response_data = {
                     "wildlife": important,
                     "ninjas": ninjas_info,
-                    "observation_id": str(observation.id)
+                    "observation_id": observation_id
                 }
                 return response_data
 

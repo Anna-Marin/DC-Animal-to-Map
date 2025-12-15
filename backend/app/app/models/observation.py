@@ -1,9 +1,11 @@
 from datetime import datetime
 from typing import Optional
-from odmantic import Model, Field, ObjectId
+from pydantic import Field
 
-class Observation(Model):
-    user_id: ObjectId
+from app.db.base_class import Base
+
+class Observation(Base):
+    user_id: str
     user_name: str
     species: str
     confidence: float

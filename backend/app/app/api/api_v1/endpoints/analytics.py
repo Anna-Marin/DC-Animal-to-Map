@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from collections import defaultdict
 from app.models.raw_data import RawData, DataSource
 from app.models.user import User
-from app.db.session import get_engine
+from app.db.session import MongoDatabase
 from app.api import deps
 from app.services.disl import NinjasProvider, WildlifeProvider, EBirdProvider
 import logging
@@ -21,15 +21,20 @@ async def get_temporal_patterns(
     current_user: User = Depends(deps.get_current_active_user)
 ) -> Any:
     try:
-        engine = get_engine()
+        db = MongoDatabase()
+        raw_data_collection = db["raw_data"]
         cutoff_date = datetime.utcnow() - timedelta(days=days)
         
-        ebird_data = await engine.find(
-            RawData,
-            RawData.source == DataSource.EBIRD,
-            RawData.fetched_at >= cutoff_date,
-            sort=RawData.fetched_at.asc(),
-        )
+        cursor = raw_data_collection.find({
+            "source": DataSource.EBIRD.value,
+            "fetched_at": {"$gte": cutoff_date}
+        }).sort("fetched_at", 1)
+        
+        ebird_data = []
+        async for doc in cursor:
+            doc["id"] = str(doc["_id"])
+            del doc["_id"]
+            ebird_data.append(RawData(**doc))
         
         # Temporal aggregation structures
         hourly_counts = defaultdict(int)
@@ -77,12 +82,16 @@ async def get_temporal_patterns(
                 await ebird_provider.run_etl(species=species, max_results=100)
                 
                 # Re-query DB after fetch
-                ebird_data = await engine.find(
-                    RawData,
-                    RawData.source == DataSource.EBIRD,
-                    RawData.fetched_at >= cutoff_date,
-                    sort=RawData.fetched_at.asc(),
-                )
+                cursor = raw_data_collection.find({
+                    "source": DataSource.EBIRD.value,
+                    "fetched_at": {"$gte": cutoff_date}
+                }).sort("fetched_at", 1)
+                
+                ebird_data = []
+                async for doc in cursor:
+                    doc["id"] = str(doc["_id"])
+                    del doc["_id"]
+                    ebird_data.append(RawData(**doc))
                 
                 # Reset counts and process again
                 total_observations = 0
@@ -143,12 +152,16 @@ async def get_temporal_patterns(
             logger.debug(f"[ANALYTICS] Fetching habitat data for species: {species}")
             
             # Fetch from local DB first (Wildlife + Ninjas data)
-            wildlife_data = await engine.find(
-                RawData,
-                RawData.source.in_([DataSource.WILDLIFE, DataSource.NINJAS]),
-                RawData.fetched_at >= cutoff_date - timedelta(days=30),  # Recent data
-                limit=50
-            )
+            wildlife_cursor = raw_data_collection.find({
+                "source": {"$in": [DataSource.WILDLIFE.value, DataSource.NINJAS.value]},
+                "fetched_at": {"$gte": cutoff_date - timedelta(days=30)}
+            }).limit(50)
+            
+            wildlife_data = []
+            async for doc in wildlife_cursor:
+                doc["id"] = str(doc["_id"])
+                del doc["_id"]
+                wildlife_data.append(RawData(**doc))
             
             logger.debug(f"[ANALYTICS] Found {len(wildlife_data)} Wildlife/Ninjas records in DB")
             

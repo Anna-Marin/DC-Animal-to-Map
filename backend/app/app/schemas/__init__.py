@@ -7,9 +7,7 @@ from .token import (
     RefreshToken,
     Token,
     TokenPayload,
-    MagicTokenPayload,
     WebToken,
 )
 from .user import User, UserCreate, UserInDB, UserUpdate, UserLogin
 from .emails import EmailContent
-from .totp import NewTOTP, EnableTOTP

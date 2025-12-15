@@ -6,14 +6,15 @@ import httpx
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from app.models.raw_data import RawData, DataSource, ETLStatus
-from app.db.session import MongoDatabase, get_engine
+from app.db.session import MongoDatabase
+from bson import ObjectId
 
 logger = logging.getLogger(__name__)
 
 class ETLProvider(ABC):
     def __init__(self, source: DataSource):
         self.source = source
-        self.engine = get_engine()
+        self.db = MongoDatabase()
 
     @abstractmethod
     async def fetch(self) -> Any:
@@ -27,15 +28,15 @@ class ETLProvider(ABC):
 
     async def store(self, data: Any, status: ETLStatus, error: Optional[str] = None, metadata: Optional[dict] = None):
         """Store the data in the database."""
-        raw_data_entry = RawData(
-            source=self.source,
-            data=data,
-            fetched_at=datetime.utcnow(),
-            status=status,
-            error_message=error,
-            metadata=metadata or {}
-        )
-        await self.engine.save(raw_data_entry)
+        raw_data_doc = {
+            "source": self.source.value,
+            "data": data,
+            "fetched_at": datetime.utcnow(),
+            "status": status.value,
+            "error_message": error,
+            "metadata": metadata or {}
+        }
+        await self.db["raw_data"].insert_one(raw_data_doc)
         logger.info(f"Stored data for {self.source} with status {status}")
 
     async def run(self):

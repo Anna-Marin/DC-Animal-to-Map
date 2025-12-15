@@ -9,8 +9,9 @@ import logging
 class OpenStreetMapsProvider(ETLProvider):
     def __init__(self):
         super().__init__(DataSource.MAPS)
-        self.api_key = settings.OPEN_STREET_MAPS_API_KEY
         self.base_url = settings.OPEN_STREET_MAPS_API_URL
+        self.photon_url = settings.PHOTON_API_URL
+        self.photon_reverse_url = settings.PHOTON_REVERSE_API_URL
 
     async def get_map_for_locations(self, locations):
         logger = logging.getLogger("app.services.disl.maps")
@@ -36,8 +37,9 @@ class OpenStreetMapsProvider(ETLProvider):
                         coords.append({"lat": float(lat), "lon": float(lon)})
                         
                 if coords:
-                    logger.info(f"[ETL-MAP] Found {len(coords)} coordinates for {loc} (Photon)")
-                    location_results[loc] = coords
+                    # Only take the first (most relevant) coordinate for each location
+                    logger.info(f"[ETL-MAP] Found {len(coords)} coordinates for {loc}, using the first one")
+                    location_results[loc] = [coords[0]]
                 else:
                     logger.warning(f"[ETL-MAP] No coordinates found for location: {loc}")
                     location_results[loc] = []
@@ -48,7 +50,7 @@ class OpenStreetMapsProvider(ETLProvider):
         center = all_coords[0] if all_coords else {"lat": 0, "lon": 0}
         logger.info(f"[ETL-MAP] Finished. Total coordinates: {len(all_coords)}")
         return {
-            "coordinates": all_coords[:50],
+            "coordinates": all_coords,
             "center": center,
             "location_results": location_results
         }
@@ -61,7 +63,7 @@ class OpenStreetMapsProvider(ETLProvider):
         
         async with self.get_client() as client:
             response = await client.get(
-                "https://photon.komoot.io/api/",
+                self.photon_url,
                 params=params
             )
             response.raise_for_status()
@@ -103,7 +105,7 @@ class OpenStreetMapsProvider(ETLProvider):
             # Use Photon reverse geocoding
             async with self.get_client() as client:
                 response = await client.get(
-                    "https://photon.komoot.io/reverse",
+                    self.photon_reverse_url,
                     params={"lat": lat, "lon": lon, "limit": 1}
                 )
                 response.raise_for_status()

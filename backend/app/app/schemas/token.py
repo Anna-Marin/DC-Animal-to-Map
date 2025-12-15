@@ -1,14 +1,13 @@
 from pydantic import BaseModel, ConfigDict, SecretStr
-from odmantic import Model, ObjectId
 
 
 class RefreshTokenBase(BaseModel):
     token: SecretStr
-    authenticates: Model | None = None
+    authenticates: str | None = None
 
 
 class RefreshTokenCreate(RefreshTokenBase):
-    authenticates: Model
+    authenticates: str
 
 
 class RefreshTokenUpdate(RefreshTokenBase):
@@ -26,14 +25,8 @@ class Token(BaseModel):
 
 
 class TokenPayload(BaseModel):
-    sub: ObjectId | None = None
+    sub: str | None = None
     refresh: bool | None = False
-    totp: bool | None = False
-
-
-class MagicTokenPayload(BaseModel):
-    sub: ObjectId | None = None
-    fingerprint: ObjectId | None = None
 
 
 class WebToken(BaseModel):

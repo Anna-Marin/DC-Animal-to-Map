@@ -176,12 +176,11 @@ async def delete_user(
     """
     Users can delete their own account, admins can delete any account.
     """
-    from bson import ObjectId
     # Check if user is deleting their own account or is admin
     if str(current_user.id) != user_id and not current_user.is_superuser:
         raise HTTPException(status_code=403, detail="Not enough permissions")
     
-    user = await crud.user.get(db, id=ObjectId(user_id))
+    user = await crud.user.get(db, id=user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
@@ -201,8 +200,7 @@ async def update_user_role(
     """
     Update user role (admin only).
     """
-    from bson import ObjectId
-    user = await crud.user.get(db, id=ObjectId(user_id))
+    user = await crud.user.get(db, id=user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     

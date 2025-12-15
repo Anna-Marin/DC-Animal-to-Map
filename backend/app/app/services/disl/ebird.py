@@ -222,27 +222,33 @@ class EBirdProvider(ETLProvider):
                                 obs_list.append(item)
             return obs_list
 
-        results = await self.engine.find(
-            RawData,
-            RawData.source == DataSource.EBIRD,
-            RawData.fetched_at >= thirty_days_ago,
-            sort=RawData.fetched_at.desc(),
-            limit=50
-        )
+        cursor = self.db['raw_data'].find({
+            'source': DataSource.EBIRD.value,
+            'fetched_at': {'$gte': thirty_days_ago}
+        }).sort('fetched_at', -1).limit(50)
+        
+        results = []
+        async for doc in cursor:
+            doc['id'] = str(doc['_id'])
+            del doc['_id']
+            results.append(RawData(**doc))
         
         observations = extract_obs(results)
         
         if not observations:
             self.logger.info(f"[EBIRD-PROVIDER] No cached observations for {species}, triggering ETL.")
-            await self.run_etl(region_code="world", species=species, max_results=100)
+            await self.run_etl(region_code='world', species=species, max_results=100)
             
-            results = await self.engine.find(
-                RawData,
-                RawData.source == DataSource.EBIRD,
-                RawData.fetched_at >= thirty_days_ago,
-                sort=RawData.fetched_at.desc(),
-                limit=50
-            )
+            cursor = self.db['raw_data'].find({
+                'source': DataSource.EBIRD.value,
+                'fetched_at': {'$gte': thirty_days_ago}
+            }).sort('fetched_at', -1).limit(50)
+            
+            results = []
+            async for doc in cursor:
+                doc['id'] = str(doc['_id'])
+                del doc['_id']
+                results.append(RawData(**doc))
             observations = extract_obs(results)
 
         unique_obs = []

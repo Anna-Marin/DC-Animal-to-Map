@@ -16,12 +16,10 @@ def parse_cors(v: Any) -> list[str] | str:
 class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1"
     SECRET_KEY: str = secrets.token_urlsafe(32)
-    TOTP_SECRET_KEY: str = secrets.token_urlsafe(32)
     # 60 minutes * 24 hours * 8 days = 8 days
     ACCESS_TOKEN_EXPIRE_SECONDS: int = 60 * 30
     REFRESH_TOKEN_EXPIRE_SECONDS: int = 60 * 60 * 24 * 30
     JWT_ALGO: str = "HS512"
-    TOTP_ALGO: str = "SHA-1"
     SERVER_NAME: str
     SERVER_HOST: AnyHttpUrl
     SERVER_BOT: str = "Symona"
@@ -56,8 +54,9 @@ class Settings(BaseSettings):
     NINJAS_API_KEY: str | None = os.getenv("NINJAS_API_KEY")
     NINJAS_API_URL: str = "https://api.api-ninjas.com/v1/animals"
     
-    OPEN_STREET_MAPS_API_KEY: str | None = os.getenv("OPEN_STREET_MAPS_API_KEY")
     OPEN_STREET_MAPS_API_URL: str = "https://nominatim.openstreetmap.org"
+    PHOTON_API_URL: str = "https://photon.komoot.io/api/"
+    PHOTON_REVERSE_API_URL: str = "https://photon.komoot.io/reverse"
 
     EBIRD_API_KEY: str | None = os.getenv("EBIRD_API_KEY")
     EBIRD_API_URL: str = "https://api.ebird.org/v2/data/obs/"
