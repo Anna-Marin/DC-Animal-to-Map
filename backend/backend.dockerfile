@@ -1,10 +1,28 @@
-FROM ghcr.io/br3ndonland/inboard:fastapi-0.51-python3.11
+FROM python:3.11
 
-# Use file.name* in case it doesn't exist in the repo
+# Install pipx and hatch for dependency management
+ARG HATCH_VERSION=1.7.0
+ARG PIPX_VERSION=1.2.0
+ENV HATCH_ENV_TYPE_VIRTUAL_PATH=.venv \
+    HATCH_VERSION=$HATCH_VERSION \
+    PATH=/opt/pipx/bin:/app/.venv/bin:$PATH \
+    PIPX_BIN_DIR=/opt/pipx/bin \
+    PIPX_HOME=/opt/pipx/home \
+    PIPX_VERSION=$PIPX_VERSION \
+    PYTHONPATH=/app
+
+# Copy application code
 COPY ./app/ /app/
 WORKDIR /app/
-ENV HATCH_ENV_TYPE_VIRTUAL_PATH=.venv
-RUN hatch env prune && hatch env create production && pip install --upgrade setuptools
+
+# Install pipx, hatch, and create virtual environment
+RUN python -m pip install --no-cache-dir --upgrade pip "pipx==$PIPX_VERSION" && \
+    pipx install "hatch==$HATCH_VERSION" && \
+    hatch env prune && hatch env create production && \
+    pip install --upgrade setuptools
+
+# Install web server dependencies (FastAPI, Gunicorn, Uvicorn)
+RUN pip install fastapi gunicorn uvicorn[standard]
 
 # /start Project-specific dependencies
 # RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -27,3 +45,6 @@ ARG BACKEND_PRE_START_PATH=/app/prestart.sh
 ARG BACKEND_PROCESS_MANAGER=gunicorn
 ARG BACKEND_WITH_RELOAD=false
 ENV APP_MODULE=${BACKEND_APP_MODULE} PRE_START_PATH=${BACKEND_PRE_START_PATH} PROCESS_MANAGER=${BACKEND_PROCESS_MANAGER} WITH_RELOAD=${BACKEND_WITH_RELOAD} WEB_CONCURRENCY=${WEB_CONCURRENCY}
+
+# Startup script
+CMD ["/bin/bash", "-c", "if [ -f \"$PRE_START_PATH\" ]; then bash \"$PRE_START_PATH\"; fi && if [ \"$PROCESS_MANAGER\" = \"uvicorn\" ]; then exec uvicorn --host 0.0.0.0 --port 80 $([[ \"$WITH_RELOAD\" = \"true\" ]] && echo \"--reload\") $APP_MODULE; else exec gunicorn -k uvicorn.workers.UvicornWorker -w ${WEB_CONCURRENCY:-1} --bind 0.0.0.0:80 $APP_MODULE; fi"]
