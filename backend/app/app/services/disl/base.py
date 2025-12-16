@@ -68,4 +68,4 @@ class ETLProvider(ABC):
 
     @staticmethod
     def get_client() -> httpx.AsyncClient:
-        return httpx.AsyncClient(timeout=30.0)
+        return httpx.AsyncClient(timeout=60.0)

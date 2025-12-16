@@ -44,7 +44,11 @@ class OpenStreetMapsProvider(ETLProvider):
                     logger.warning(f"[ETL-MAP] No coordinates found for location: {loc}")
                     location_results[loc] = []
             except Exception as e:
-                logger.error(f"[ETL-MAP] Error fetching coordinates from Photon for {loc}: {e}")
+                error_msg = str(e)
+                if "timeout" in error_msg.lower() or "timed out" in error_msg.lower():
+                    logger.error(f"[ETL-MAP] Timeout fetching coordinates from Photon for {loc} - location may be too broad or API is slow")
+                else:
+                    logger.error(f"[ETL-MAP] Error fetching coordinates from Photon for {loc}: {e}")
                 location_results[loc] = []
         all_coords = [c for coords in location_results.values() for c in coords]
         center = all_coords[0] if all_coords else {"lat": 0, "lon": 0}

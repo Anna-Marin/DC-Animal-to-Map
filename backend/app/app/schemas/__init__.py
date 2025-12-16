@@ -11,3 +11,4 @@ from .token import (
 )
 from .user import User, UserCreate, UserInDB, UserUpdate, UserLogin
 from .emails import EmailContent
+from .login_log import LoginLog, LoginLogCreate

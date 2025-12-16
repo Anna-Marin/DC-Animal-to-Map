@@ -55,7 +55,7 @@ class Settings(BaseSettings):
     NINJAS_API_URL: str = "https://api.api-ninjas.com/v1/animals"
     
     OPEN_STREET_MAPS_API_URL: str = "https://nominatim.openstreetmap.org"
-    PHOTON_API_URL: str = "https://photon.komoot.io/api/"
+    PHOTON_API_URL: str = "https://photon.komoot.io/api"
     PHOTON_REVERSE_API_URL: str = "https://photon.komoot.io/reverse"
 
     EBIRD_API_KEY: str | None = os.getenv("EBIRD_API_KEY")

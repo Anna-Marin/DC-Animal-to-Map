@@ -17,8 +17,14 @@ function BirdObservationsContent() {
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [searchInput, setSearchInput] = useState<string>(speciesName);
+    const [mounted, setMounted] = useState(false);
     const mapRef = useRef<any>(null);
     const mapContainerRef = useRef<HTMLDivElement>(null);
+
+    // Prevent hydration mismatch
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     function handleSearch(e: React.FormEvent) {
         e.preventDefault();
@@ -148,9 +154,9 @@ function BirdObservationsContent() {
         return ">30 days";
     }
 
-    // Don't render if not logged in
-    if (!isLoggedIn) {
-        return null;
+    // Don't render if not logged in or not mounted yet
+    if (!mounted || !isLoggedIn) {
+        return <div className="bg-white py-24 sm:py-32 min-h-screen"></div>;
     }
 
     return (
