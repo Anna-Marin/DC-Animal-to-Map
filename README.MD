@@ -8,20 +8,7 @@ In this project, we created a simple web service that uses four APIs (ebirb,open
 
 ## Installation and deployment
 
-### Execute cookiecutter
-
-Cookiecutter is a generator that will ask for the information of your project. Execute cookiecutter and answer the questions provided. You might want to have these on hand before generating the project.
-
-You can look up and change the questions if needed in `cookiecutter-config-file.yml`
-
-Dont worry you can change your answers in the .env file that will be generated
-
-```
-pip install cookiecutter
-cookiecutter https://github.com/mongodb-labs/full-stack-fastapi-mongodb.git
-```
-
-After the cookiecutter script is completed, you should go to your project folder and build the project containers:
+Create the apps containers with docker
 
 ```
 docker-compose build --no-cache
@@ -35,6 +22,6 @@ docker-compose up --build
 
 ## How to use
 
-First of all, make sure to put the different API keys into the `.dev` file
+First of all, make sure to put the different API keys into the `.env` file
 
 Then start the application with docker and go to the app page (http://localhost:3000 by default).
