@@ -17,7 +17,7 @@ interface ETLProvider {
 interface User {
     id: string;
     email: string;
-    fullName: string;
+    full_name: string;
     is_active: boolean;
     is_superuser: boolean;
 }
@@ -379,7 +379,7 @@ export default function AdminPage() {
                                                 userList.map((user) => (
                                                     <tr key={user.id}>
                                                         <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">
-                                                            {user.fullName || "N/A"}
+                                                            {user.full_name || "N/A"}
                                                         </td>
                                                         <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                                                             {user.email}
