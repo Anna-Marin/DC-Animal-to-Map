@@ -248,6 +248,69 @@ Fetches historical ETL execution logs for a provider. Receives \texttt{provider}
 \subsubsection{GET /api/v1/analytics/temporal-patterns}
 Analyzes temporal patterns in animal observations. Receives optional query parameters: \texttt{species}, \texttt{location}, \texttt{time\_granularity} (hour, day, month, year). Aggregates observation data by time periods, calculates frequencies, identifies peak activity times, and returns statistical summaries. Uses MongoDB aggregation pipeline for efficient time-series analysis. Called from frontend analytics dashboards. Possible responses: 200 with temporal analysis results, 401 if not authenticated, 400 if invalid parameters.
 
+
+\section{User and admin interface}
+
+The interface of our application is quite simple since we wanted to spend more time and resources on the backend. It consists of a public section open to all users containing a page for each function of the app and an admin page exclusive to admin users where they can moderate users and keep an eye on the logs.
+
+\subsection{Public section}
+
+\subsubsection{Image to animal}
+
+\begin{figure}[htp]
+    \centering
+    \includegraphics[width=8cm]{image-to-animal.png}
+    \caption{An example of the page Image to animal}
+    \label{fig:Image to animal example}
+\end{figure}
+
+Image to Animal lets the user upload an image of an animal and have it identified by Wildlife API and Ninjas API. Once the animal is identified, the user has the option to see where that animal has been seen recently, an action that will bring them to the next page.
+
+\subsubsection{Locate animal on map}
+
+\begin{figure}[htp]
+    \centering
+    \includegraphics[width=8cm]{locate-to-map.png}
+    \caption{An example of the page Locate animal on map}
+    \label{fig:Locate animal on map example}
+\end{figure}
+
+In Locate animal on Map, the user can introduce an animal to search the recent location of the specific animal using the Ninja API and displaying the results on a world map.
+
+\subsubsection{Bird observation}
+\begin{figure}[htp]
+    \centering
+    \includegraphics[width=8cm]{bird-observations.png}
+    \caption{An example of the page bird observations}
+    \label{fig: bird observations example}
+\end{figure}
+
+Bird observations uses the eBird API to search for the recent observations of different species of birds and then displays them in a world map.
+
+\subsubsection{Map search}
+
+\begin{figure}[htp]
+    \centering
+    \includegraphics[width=8cm]{observations.png}
+    \caption{An example of the page Map search}
+    \label{fig: bird map search example}
+\end{figure}
+
+In Map Search, users can search for a specific country to see the different species spotted in that country provided by the eBird API and our database.
+
+
+\subsubsection{Temporal activity patterns}
+
+\begin{figure}[htp]
+    \centering
+    \includegraphics[width=8cm]{analysis.png}
+    \caption{An example of the page Temporal activity patterns}
+    \label{fig:Temporal activity patterns example}
+\end{figure}
+
+
+Temporal activity patterns combine the results of eBird and the Ninjas API, and it analyzes them to provide an activity graph for a specific species, including the best time to spot that animal and the environment they inhabit the most.
+
 \section{Logging System}
 
 The application implements a comprehensive logging system that tracks both user authentication activities and ETL (Extract, Transform, Load) operations. The logging infrastructure uses Python's built-in logging module and stores structured log data in MongoDB for persistent audit trails.
