@@ -25,3 +25,25 @@ docker-compose up --build
 First of all, make sure to put the different API keys into the `.env` file
 
 Then start the application with docker and go to the app page (http://localhost:3000 by default).
+
+## Api call examples
+
+### POST /api/v1/image-upload/image-to-animal-info
+
+![](./doc/image-to-animal.png)
+
+### GET api_v1/endpoints/maps/animal-to-map
+
+![](./doc/locate-to-map.png)
+
+### GET api_v1/endpoints/maps/ebird-observations-map
+
+![](./doc/bird-observations.png)
+
+### GET api_v1/endpoints/observations/search
+
+![](./doc/observations.png)
+
+### GET /api_v1/endpoints/analytics/temporal-patterns
+
+![](./doc/analysis.png)
