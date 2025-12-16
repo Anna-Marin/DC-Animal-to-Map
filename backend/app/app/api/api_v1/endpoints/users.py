@@ -171,23 +171,49 @@ async def create_user(
 async def delete_user(
     user_id: str,
     db: AgnosticDatabase = Depends(deps.get_db),
-    current_user: models.User = Depends(deps.get_current_active_user),
+    current_user: models.User = Depends(deps.get_current_active_superuser),
 ) -> Any:
     """
-    Users can delete their own account, admins can delete any account.
+    Delete a user.
     """
-    # Check if user is deleting their own account or is admin
-    if str(current_user.id) != user_id and not current_user.is_superuser:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
-    
     user = await crud.user.get(db, id=user_id)
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(
+            status_code=404,
+            detail="The user with this id does not exist in the system",
+        )
+    await crud.user.remove(db, id=user_id)
+    return {"msg": "User deleted successfully."}
+
+
+@router.put("/{user_id}", response_model=schemas.User)
+async def update_user_by_id(
+    user_id: str,
+    *,
+    db: AgnosticDatabase = Depends(deps.get_db),
+    user_in: schemas.UserUpdate,
+    current_user: models.User = Depends(deps.get_current_active_superuser),
+) -> Any:
+    """
+    Update a user.
+    """
+    user = await crud.user.get(db, id=user_id)
+    if not user:
+        raise HTTPException(
+            status_code=404,
+            detail="The user with this id does not exist in the system",
+        )
     
-    # Soft delete: set is_active to False
-    user.is_active = False
-    await crud.user.update(db, db_obj=user, obj_in={"is_active": False})
-    return {"msg": f"User {user_id} deleted successfully"}
+    if user_in.email and user_in.email != user.email:
+         user_with_email = await crud.user.get_by_email(db, email=user_in.email)
+         if user_with_email:
+             raise HTTPException(
+                status_code=400,
+                detail="The user with this username already exists in the system.",
+            )
+
+    user = await crud.user.update(db, db_obj=user, obj_in=user_in)
+    return user
 
 
 @router.put("/{user_id}/role", response_model=schemas.User)
