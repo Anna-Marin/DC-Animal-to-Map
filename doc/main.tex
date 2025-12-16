@@ -128,13 +128,25 @@
 
 In this project, we created a simple web service that uses four APIs to get information about animals and maps. The web service backend is built with FastAPI and the frontend with React. We started with a github simple template for FastAPI and React applications that the teacher showed us in class and then we added the required features and modified some behaviors to fit our needs.
 
+% --- Landscape image page ---
+\newpage
+\begin{landscape}
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.95\linewidth]{architecture.drawio.png}
+  \label{fig:project_overview}
+  \caption{Project Overview}
+\end{figure}
+\end{landscape}
+\newpage
+
 \section{Login system}
 
 The login system supports classic username/password (OAuth2) authentication with tokens as we did in class
 
 \textbf{Frontend}: The login page collects user credentials and dispatches a Redux action (\texttt{login}). This calls an API function (\texttt{loginWithOauth}) that sends a POST request to \texttt{/login/oauth} with the username and password. If successful, the backend returns an \texttt{access\_token} and \texttt{refresh\_token}, which are stored in Redux state (\texttt{tokensSlice}).
-  \item \textbf{Backend}: The \texttt{/login/oauth} endpoint (in \texttt{api/api_v1/endpoints/login.py}) authenticates the user using the provided credentials. If valid, it generates an access token (short-lived JWT) and a refresh token (long-lived JWT, also stored in the DB for revocation). The access token is used for authenticating API requests.
-\end{itemize}
+  \textbf{Backend}: The \texttt{/login/oauth} endpoint (in \texttt{api/api\_v1/endpoints/login.py}) authenticates the user using the provided credentials. If valid, it generates an access token (short-lived JWT) and a refresh token (long-lived JWT, also stored in the DB for revocation). The access token is used for authenticating API requests.
+
 
 \section{The distl: ETL Providers for Animal Data}
 
@@ -170,7 +182,7 @@ The \texttt{NinjasProvider} is for the Ninjas API. It sets up API keys and URLs 
 
 The \texttt{OpenStreetMapsProvider} is for geospatial data and geocoding. It sets up API keys and Photon geocoding service URLs in its constructor. The provider has several methods: \texttt{get\_map\_for\_locations} takes a list of locations, queries Photon (an OpenStreetMap geocoder) for each one, extracts coordinates, and returns them along with a computed center point. The \texttt{fetch} method queries the Photon API for geocoding results given a location query string. The \texttt{normalize} method converts Photon/OSM data into a list of dictionaries with place\_id, name, coordinates, type, and class. Additionally, \texttt{geocode\_single} takes a single location string and returns a tuple of latitude and longitude coordinates, while \texttt{reverse\_geocode\_country} takes latitude and longitude coordinates and returns the country code by performing reverse geocoding.
 
-All providers follow the same pattern: fetch data from their source, normalize it, and store it in MongoDB. Each provider handles the quirks and requirements of its own API, so the rest of the application can work with a unified data model.
+All providers follow the same pattern: fetch data from their source, normalize it, and store it in MongoDB. Each provider handles the requirements of its own API, so the rest of the application can work with a unified data model.
 
 \section{API Endpoints Documentation}
 
@@ -235,6 +247,199 @@ Fetches historical ETL execution logs for a provider. Receives \texttt{provider}
 
 \subsubsection{GET /api/v1/analytics/temporal-patterns}
 Analyzes temporal patterns in animal observations. Receives optional query parameters: \texttt{species}, \texttt{location}, \texttt{time\_granularity} (hour, day, month, year). Aggregates observation data by time periods, calculates frequencies, identifies peak activity times, and returns statistical summaries. Uses MongoDB aggregation pipeline for efficient time-series analysis. Called from frontend analytics dashboards. Possible responses: 200 with temporal analysis results, 401 if not authenticated, 400 if invalid parameters.
+
+\section{Logging System}
+
+The application implements a comprehensive logging system that tracks both user authentication activities and ETL (Extract, Transform, Load) operations. The logging infrastructure uses Python's built-in logging module and stores structured log data in MongoDB for persistent audit trails.
+
+\subsection{Login Logging}
+
+The login logging system tracks all authentication attempts in the application, storing them in a dedicated MongoDB collection for security auditing and monitoring purposes.
+
+\subsubsection{Implementation}
+
+Login logs are created automatically during the OAuth2 authentication process. When a user attempts to log in via the \texttt{POST /api/v1/login/oauth} endpoint, the system performs the following steps:
+
+\begin{enumerate}
+    \item The endpoint receives username (email) and password from the OAuth2 form data
+    \item The system attempts to authenticate the user using \texttt{crud.user.authenticate()}
+    \item A login log entry is created with a \texttt{LoginLogCreate} schema containing:
+    \begin{itemize}
+        \item \texttt{email}: The email/username used in the login attempt
+        \item \texttt{success}: Boolean indicating whether the login was successful (user exists and is active)
+        \item \texttt{timestamp}: Automatically added by the database (current UTC time)
+    \end{itemize}
+    \item The log entry is persisted to MongoDB via \texttt{crud.login\_log.create()}
+    \item If authentication succeeds, access and refresh tokens are generated and returned
+    \item If authentication fails, an HTTP 401 error is raised (after the log has been created)
+\end{enumerate}
+
+\subsubsection{Data Schema}
+
+The \texttt{LoginLog} schema (defined in \texttt{app/schemas/}) contains the following fields:
+
+\begin{itemize}
+    \item \texttt{id}: MongoDB ObjectId converted to string
+    \item \texttt{email}: User's email address used in login attempt
+    \item \texttt{success}: Boolean indicating successful authentication and active user status
+    \item \texttt{timestamp}: UTC datetime when the login attempt occurred
+\end{itemize}
+
+\subsubsection{Retrieval and Admin Access}
+
+Login logs can be retrieved through the \texttt{GET /api/v1/login-logs/} endpoint, which is restricted to superuser/admin access only. The endpoint implements:
+
+\begin{itemize}
+    \item Pagination support via \texttt{skip} and \texttt{limit} query parameters
+    \item Descending chronological ordering (most recent first)
+    \item Backward compatibility handling for legacy log entries that may lack certain fields
+    \item Automatic email resolution for older logs that stored \texttt{user\_id} instead of \texttt{email}
+\end{itemize}
+
+The retrieval process includes data normalization to handle database schema evolution:
+
+\begin{lstlisting}[language=Python]
+# Ensure all required fields exist with defaults
+if "timestamp" not in doc:
+    doc["timestamp"] = datetime.now()
+if "success" not in doc:
+    doc["success"] = True
+# Handle legacy documents with user_id
+if "email" not in doc and "user_id" in doc:
+    user = await crud.user.get(db, id=doc["user_id"])
+    doc["email"] = user.email if user else "unknown@example.com"
+\end{lstlisting}
+
+\subsection{ETL Logging}
+
+The ETL logging system provides detailed operational logs for all data extraction, transformation, and loading processes across multiple external APIs. Each ETL provider implements structured logging to track the complete data pipeline lifecycle.
+
+\subsubsection{Base ETL Logging Infrastructure}
+
+All ETL providers extend the abstract \texttt{ETLProvider} base class, which provides centralized logging utilities:
+
+\begin{lstlisting}[language=Python]
+def get_logger(self):
+    return logging.getLogger(f"app.services.disl.{self.source.value}")
+
+def log_info(self, message: str):
+    self.get_logger().info(f"[{self.source.value}] {message}")
+
+def log_warning(self, message: str):
+    self.get_logger().warning(f"[{self.source.value}] {message}")
+
+def log_error(self, message: str):
+    self.get_logger().error(f"[{self.source.value}] {message}")
+\end{lstlisting}
+
+Each provider gets a named logger based on its data source (e.g., \texttt{app.services.disl.ebird}, \texttt{app.services.disl.wildlife}), ensuring log messages are properly categorized and can be filtered by source.
+
+\subsubsection{EBird Provider Logging}
+
+The \texttt{EBirdProvider} implements comprehensive logging throughout its ETL pipeline:
+
+\begin{itemize}
+    \item \textbf{ETL Start}: Logs when an ETL process begins, including region code and species query\\
+    \texttt{[EBIRD-ETL] Starting ETL for region: US, species query: eagle}
+    
+    \item \textbf{Data Fetch}: Logs the number of records fetched from eBird API\\
+    \texttt{[EBIRD-ETL] Fetched 150 records from eBird for US}
+    
+    \item \textbf{Normalization}: Logs the number of records normalized into internal schema\\
+    \texttt{[EBIRD-ETL] Normalized 150 records.}
+    
+    \item \textbf{ETL Complete}: Logs successful completion with final record count\\
+    \texttt{[EBIRD-ETL] ETL complete. Saved 150 records.}
+    
+    \item \textbf{Cache Events}: Logs when cached data is used instead of triggering new ETL\\
+    \texttt{[EBIRD-PROVIDER] No cached observations for eagle, triggering ETL.}
+\end{itemize}
+
+\subsubsection{Maps Provider Logging}
+
+The \texttt{OpenStreetMapsProvider} logs all geocoding operations with detailed context:
+
+\begin{itemize}
+    \item \textbf{Process Start}: Logs the beginning of geocoding for a set of locations\\
+    \texttt{[ETL-MAP] Starting get\_map\_for\_locations for: ['Africa', 'Asia']}
+    
+    \item \textbf{Individual Queries}: Logs each Photon API query\\
+    \texttt{[ETL-MAP] Querying Photon for: Africa}
+    
+    \item \textbf{Results}: Logs the number of coordinates found per location\\
+    \texttt{[ETL-MAP] Found 5 coordinates for Africa, using the first one}
+    
+    \item \textbf{Warnings}: Logs when no coordinates are found\\
+    \texttt{[ETL-MAP] No coordinates found for location: InvalidPlace}
+    
+    \item \textbf{Errors}: Logs failures with error details and timeout detection\\
+    \texttt{[ETL-MAP] Timeout fetching coordinates from Photon for Europe - location may be too broad or API is slow}
+    
+    \item \textbf{Process Complete}: Logs total coordinates retrieved\\
+    \texttt{[ETL-MAP] Finished. Total coordinates: 10}
+    
+    \item \textbf{Reverse Geocoding}: Logs successful country code resolution\\
+    \texttt{Reverse geocoded (41.5, 2.1) to country: ES}
+\end{itemize}
+
+\subsubsection{Wildlife Provider Logging}
+
+The \texttt{WildlifeProvider} logs image processing and API interactions:
+
+\begin{itemize}
+    \item \textbf{API Responses}: Logs raw Wildlife API responses for debugging\\
+    \texttt{Wildlife API response: \{"annotations": [...]\}}
+    
+    \item \textbf{Image Processing}: Logs when images are resized or compressed (in \texttt{image\_utils.py})\\
+    \texttt{Image resized/compressed to 2048576 bytes, quality=85}
+\end{itemize}
+
+\subsubsection{Ninjas Provider Logging}
+
+The \texttt{NinjasProvider} logs API queries and fallback strategies:
+
+\begin{itemize}
+    \item \textbf{Primary Query}: Logs API responses for initial queries\\
+    \texttt{Ninjas API response for 'bald eagle': [...]}
+    
+    \item \textbf{Fallback Strategy}: Logs when using last-word fallback for multi-word species names\\
+    \texttt{No results for 'bald eagle', trying last word: 'eagle'}\\
+    \texttt{Ninjas API response for 'eagle': [...]}
+\end{itemize}
+
+\subsubsection{Error Tracking and Database Storage}
+
+The base \texttt{ETLProvider} class includes a \texttt{store()} method that persists both successful and failed ETL operations to MongoDB:
+
+\begin{lstlisting}[language=Python]
+async def store(self, data: Any, status: ETLStatus, 
+                error: Optional[str] = None, 
+                metadata: Optional[dict] = None):
+    raw_data_doc = {
+        "source": self.source.value,
+        "data": data,
+        "fetched_at": datetime.utcnow(),
+        "status": status.value,
+        "error_message": error,
+        "metadata": metadata or {}
+    }
+    await self.db["raw_data"].insert_one(raw_data_doc)
+    logger.info(f"Stored data for {self.source} with status {status}")
+\end{lstlisting}
+
+This creates a permanent audit trail of all ETL executions, including:
+\begin{itemize}
+    \item Data source identifier
+    \item Fetched data (or null on failure)
+    \item Timestamp of execution
+    \item Success/failure status
+    \item Error messages for failed operations
+    \item Custom metadata (e.g., query parameters, record counts)
+\end{itemize}
+
+\subsubsection{Log Output and Monitoring}
+
+All logs are written to standard output in the Docker container environment, making them visible via \texttt{docker compose logs backend}. The structured format with source prefixes (e.g., \texttt{[EBIRD-ETL]}, \texttt{[ETL-MAP]}) enables easy filtering and monitoring of specific data pipelines. Log levels (INFO, WARNING, ERROR) allow operators to quickly identify issues requiring attention.
 
 \end{document}
 

@@ -205,7 +205,8 @@ class EBirdProvider(ETLProvider):
         from datetime import datetime, timedelta
         from app.models.raw_data import RawData, DataSource
 
-        thirty_days_ago = datetime.utcnow() - timedelta(days=days_back)
+        # Use a shorter cache window (1 hour) to ensure fresh data
+        one_hour_ago = datetime.utcnow() - timedelta(hours=1)
         
         def extract_obs(raw_docs):
             obs_list = []
@@ -224,7 +225,7 @@ class EBirdProvider(ETLProvider):
 
         cursor = self.db['raw_data'].find({
             'source': DataSource.EBIRD.value,
-            'fetched_at': {'$gte': thirty_days_ago}
+            'fetched_at': {'$gte': one_hour_ago}
         }).sort('fetched_at', -1).limit(50)
         
         results = []
@@ -239,9 +240,10 @@ class EBirdProvider(ETLProvider):
             self.logger.info(f"[EBIRD-PROVIDER] No cached observations for {species}, triggering ETL.")
             await self.run_etl(region_code='world', species=species, max_results=100)
             
+            # Re-query with the same 1-hour cache window
             cursor = self.db['raw_data'].find({
                 'source': DataSource.EBIRD.value,
-                'fetched_at': {'$gte': thirty_days_ago}
+                'fetched_at': {'$gte': one_hour_ago}
             }).sort('fetched_at', -1).limit(50)
             
             results = []

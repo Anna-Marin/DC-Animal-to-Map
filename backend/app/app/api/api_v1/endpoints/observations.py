@@ -47,6 +47,22 @@ async def search_observations(
     if len(country) == 2:
         region_code = country.upper()
 
+    # If the country is not in our known list and not "world", try to geocode it
+    if region_code not in ["world"] + list(COUNTRY_CODES.values()) and len(country) > 2:
+        try:
+            from app.services.disl.maps import OpenStreetMapsProvider
+            maps_provider = OpenStreetMapsProvider()
+            coords = await maps_provider.geocode_single(country)
+            if coords:
+                lat, lon = coords
+                # Reverse geocode to get country code
+                country_code = await maps_provider.reverse_geocode_country(lat, lon)
+                if country_code:
+                    region_code = country_code
+                    logger.info(f"Geocoded '{country}' to country code: {region_code}")
+        except Exception as e:
+            logger.warning(f"Failed to geocode '{country}': {e}")
+
     logger.info(f"Searching observations for {country} (code: {region_code}), species: {species}")
 
     results = {
