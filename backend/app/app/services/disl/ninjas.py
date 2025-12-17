@@ -84,17 +84,18 @@ class NinjasProvider(ETLProvider):
 
     async def get_locations(self, name: str) -> list[str]:
         """
-        Fetch, normalize, and extract unique locations for an animal.
+        Fetch, normalize, and extract unique locations for the first animal match.
         """
         raw = await self.fetch(name)
         normalized = self.normalize(raw)
         
         all_locations = set()
-        if normalized:
-            for item in normalized:
-                locs = item.get("locations")
-                if locs:
-                    all_locations.update(locs)
+        if normalized and len(normalized) > 0:
+            # Only take locations from the first animal result
+            first_animal = normalized[0]
+            locs = first_animal.get("locations")
+            if locs:
+                all_locations.update(locs)
         
         await self.save(raw, normalized)
         

@@ -4,6 +4,7 @@ from app.core.config import settings
 from app.models.raw_data import DataSource
 from .base import ETLProvider
 import logging
+import asyncio
 
 
 class OpenStreetMapsProvider(ETLProvider):
@@ -25,6 +26,8 @@ class OpenStreetMapsProvider(ETLProvider):
         for loc in locations:
             try:
                 logger.info(f"[ETL-MAP] Querying Photon for: {loc}")
+                # Add delay to avoid rate limiting
+                await asyncio.sleep(1)
                 photon_results = await self.fetch(loc)
                 coords = []
                 features = photon_results.get("features", [])
@@ -45,7 +48,9 @@ class OpenStreetMapsProvider(ETLProvider):
                     location_results[loc] = []
             except Exception as e:
                 error_msg = str(e)
-                if "timeout" in error_msg.lower() or "timed out" in error_msg.lower():
+                if "403" in error_msg or "forbidden" in error_msg.lower():
+                    logger.error(f"[ETL-MAP] Rate limit or forbidden error for {loc} - skipping")
+                elif "timeout" in error_msg.lower() or "timed out" in error_msg.lower():
                     logger.error(f"[ETL-MAP] Timeout fetching coordinates from Photon for {loc} - location may be too broad or API is slow")
                 else:
                     logger.error(f"[ETL-MAP] Error fetching coordinates from Photon for {loc}: {e}")
@@ -68,7 +73,8 @@ class OpenStreetMapsProvider(ETLProvider):
         async with self.get_client() as client:
             response = await client.get(
                 self.photon_url,
-                params=params
+                params=params,
+                timeout=10.0
             )
             response.raise_for_status()
             return response.json()
@@ -94,23 +100,29 @@ class OpenStreetMapsProvider(ETLProvider):
 
     async def geocode_single(self, location: str) -> tuple[float, float] | None:
         try:
+            # Add delay to avoid rate limiting
+            await asyncio.sleep(0.5)
             data = await self.fetch(location)
             features = data.get("features", [])
             if features:
                 coords = features[0]["geometry"]["coordinates"]
                 return float(coords[1]), float(coords[0]) # Return (lat, lon)
-        except Exception:
+        except Exception as e:
+            logging.getLogger("app.services.disl.maps").error(f"Geocoding error for {location}: {e}")
             return None
         return None
 
     async def reverse_geocode_country(self, lat: float, lon: float) -> str | None:
         logger = logging.getLogger("app.services.disl.maps")
         try:
+            # Add delay to avoid rate limiting
+            await asyncio.sleep(0.5)
             # Use Photon reverse geocoding
             async with self.get_client() as client:
                 response = await client.get(
                     self.photon_reverse_url,
-                    params={"lat": lat, "lon": lon, "limit": 1}
+                    params={"lat": lat, "lon": lon, "limit": 1},
+                    timeout=10.0
                 )
                 response.raise_for_status()
                 data = response.json()

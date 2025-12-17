@@ -11,8 +11,7 @@ router = APIRouter()
 
 @router.get("/geocode")
 async def geocode_location(
-    address: str = Query(..., description="Address or location to geocode"),
-    current_user: models.User = Depends(deps.get_current_active_user)
+    address: str = Query(..., description="Address or location to geocode")
 ) -> Any:
 
     from app.services.disl.maps import OpenStreetMapsProvider

@@ -3,6 +3,8 @@ import logging
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from app.services.disl.ebird import EBirdProvider
+from app.db.session import MongoDatabase
+from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +36,21 @@ async def run_daily_ebird_collection():
     
     logger.info("Daily eBird data collection completed")
 
+async def cleanup_old_login_logs():
+    """Delete login logs older than 1 month"""
+    logger.info("Starting monthly login logs cleanup")
+    try:
+        db = MongoDatabase()
+        one_month_ago = datetime.utcnow() - timedelta(days=30)
+        
+        result = await db["login_logs"].delete_many({
+            "timestamp": {"$lt": one_month_ago}
+        })
+        
+        logger.info(f"Deleted {result.deleted_count} login logs older than 30 days")
+    except Exception as e:
+        logger.error(f"Failed to cleanup login logs: {str(e)}")
+
 def setup_scheduler():
     scheduler = AsyncIOScheduler()
     
@@ -46,5 +63,14 @@ def setup_scheduler():
         replace_existing=True
     )
     
-    logger.info("APScheduler configured with daily eBird collection job")
+    # Add monthly login logs cleanup job (first day of month at 02:00)
+    scheduler.add_job(
+        cleanup_old_login_logs,
+        trigger=CronTrigger(day=1, hour=2, minute=0),  # First day of month at 02:00
+        id="monthly_login_logs_cleanup",
+        name="Monthly Login Logs Cleanup",
+        replace_existing=True
+    )
+    
+    logger.info("APScheduler configured with daily eBird collection and monthly cleanup jobs")
     return scheduler

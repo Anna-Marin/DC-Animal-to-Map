@@ -68,4 +68,9 @@ class ETLProvider(ABC):
 
     @staticmethod
     def get_client() -> httpx.AsyncClient:
-        return httpx.AsyncClient(timeout=60.0)
+        return httpx.AsyncClient(
+            timeout=60.0,
+            headers={
+                "User-Agent": "Mozilla/5.0 (compatible; AnimalToMap/1.0; +https://github.com/Anna-Marin/DC-animal-to-map)"
+            }
+        )

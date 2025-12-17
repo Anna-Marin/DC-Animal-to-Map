@@ -70,13 +70,13 @@ export default function Navigation() {
                     <Link href="/" className="flex flex-shrink-0 items-center">
                       <img
                         className="block h-8 w-auto lg:hidden"
-                        src="https://tailwindui.com/img/logos/mark.svg?color=rose&shade=600"
-                        alt="Your Company"
+                        src="/logo.png"
+                        alt="Animal to Map"
                       />
                       <img
                         className="hidden h-8 w-auto lg:block"
-                        src="https://tailwindui.com/img/logos/mark.svg?color=rose&shade=600"
-                        alt="Your Company"
+                        src="/logo.png"
+                        alt="Animal to Map"
                       />
                     </Link>
                   </div>

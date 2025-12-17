@@ -143,7 +143,7 @@ function UnsuspendedPage() {
                         <img
                             className="h-12 w-auto"
                             src="https://tailwindui.com/img/logos/mark.svg?color=rose&shade=500"
-                            alt="Your Company"
+                            alt="Animal to Map"
                         />
                         <h2 className="mt-6 text-3xl font-bold tracking-tight text-gray-900">
                             Create an account
