@@ -226,7 +226,7 @@ class EBirdProvider(ETLProvider):
         cursor = self.db['raw_data'].find({
             'source': DataSource.EBIRD.value,
             'fetched_at': {'$gte': one_hour_ago}
-        }).sort('fetched_at', -1).limit(50)
+        }).sort('fetched_at', -1).limit(500)
         
         results = []
         async for doc in cursor:
@@ -244,7 +244,7 @@ class EBirdProvider(ETLProvider):
             cursor = self.db['raw_data'].find({
                 'source': DataSource.EBIRD.value,
                 'fetched_at': {'$gte': one_hour_ago}
-            }).sort('fetched_at', -1).limit(50)
+            }).sort('fetched_at', -1).limit(500)
             
             results = []
             async for doc in cursor:

@@ -39,9 +39,6 @@ const mastodonIcon = () => {
 
 const footerNavigation = {
   main: [
-    { name: "About", to: "/about" },
-    { name: "Authentication", to: "/authentication" },
-    { name: "Blog", to: "/blog" },
   ],
   social: [
     {
@@ -59,18 +56,6 @@ const footerNavigation = {
   ],
 };
 
-const renderNavigation = () => {
-  return footerNavigation.main.map((item) => (
-    <div key={item.name} className="px-5 py-2">
-      <Link
-        href={item.to}
-        className="text-base text-gray-400 hover:text-gray-300"
-      >
-        {item.name}
-      </Link>
-    </div>
-  ));
-};
 
 const renderSocials = () => {
   return footerNavigation.social.map((item) => (
@@ -93,7 +78,6 @@ export default function Footer() {
           className="-mx-5 -my-2 flex flex-wrap justify-center"
           aria-label="Footer"
         >
-          {renderNavigation()}
         </nav>
         <div className="mt-8 flex justify-center space-x-6">
           {renderSocials()}
